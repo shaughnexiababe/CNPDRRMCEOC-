@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -62,6 +63,12 @@ export default function Login() {
               {loading ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
+
+          <div className="text-center">
+            <Link to="/register" className="text-sm text-primary hover:underline">
+              Don't have an account? Register as Citizen
+            </Link>
+          </div>
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>

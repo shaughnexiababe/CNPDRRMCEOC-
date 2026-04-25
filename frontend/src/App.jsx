@@ -16,6 +16,8 @@ import Facilities from '@/pages/Facilities';
 import DataLayers from '@/pages/DataLayers';
 import BarangayAssessments from '@/pages/BarangayAssessments';
 import Login from '@/pages/Login';
+import Register from '@/pages/Register';
+import UserManagement from '@/pages/UserManagement';
 
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { Navigate } from 'react-router-dom';
@@ -36,6 +38,7 @@ const AuthenticatedApp = () => {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
 
       {/* Protected Routes */}
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" />} />}>
@@ -49,6 +52,7 @@ const AuthenticatedApp = () => {
           <Route path="/facilities" element={<Facilities />} />
           <Route path="/layers" element={<DataLayers />} />
           <Route path="/assessments" element={<BarangayAssessments />} />
+          <Route path="/users" element={<UserManagement />} />
         </Route>
       </Route>
 

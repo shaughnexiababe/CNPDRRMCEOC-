@@ -21,6 +21,7 @@ const navItems = [
   { path: '/facilities', icon: Building2, label: 'Facilities', roles: ['admin', 'eoc_personnel'] },
   { path: '/layers', icon: Layers, label: 'Data Layers', roles: ['admin'] },
   { path: '/assessments', icon: ClipboardList, label: 'Barangay Assessments', roles: ['admin', 'eoc_personnel'] },
+  { path: '/users', icon: Users, label: 'User Management', roles: ['admin'] },
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {
