@@ -1,6 +1,6 @@
 {
   "name": "@shaughnexiababe/sdk",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "SDK for CN-PDRRMO Emergency Operations Center",
   "main": "index.js",
   "type": "module",
