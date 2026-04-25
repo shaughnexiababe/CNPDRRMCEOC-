@@ -1,4 +1,4 @@
-// This is the core SDK logic. For now, we will move the logic from our mock here.
+// This is the core SDK logic.
 import axios from 'axios';
 
 export const createAxiosClient = ({ baseURL, headers, token }) => {
@@ -23,11 +23,15 @@ export const createClient = ({ appId, token, appBaseUrl }) => {
     get: (target, entityName) => {
       return {
         list: async (order, limit) => {
-          // This will eventually call the real Vercel API
-          return [];
+          const storedItems = localStorage.getItem(`pdrrmo_cache_${entityName}`);
+          return storedItems ? JSON.parse(storedItems) : [];
         },
         get: async (id) => ({ id }),
-        create: async (data) => data,
+        create: async (data) => {
+           const id = Math.random().toString(36).substr(2, 9);
+           const item = { id, ...data, created_date: new Date().toISOString() };
+           return item;
+        },
         update: async (id, data) => ({ id, ...data }),
         delete: async (id) => ({ id }),
       };
@@ -36,13 +40,41 @@ export const createClient = ({ appId, token, appBaseUrl }) => {
 
   return {
     auth: {
-      me: async () => ({ id: 'prod-user', name: 'Authorized User', role: 'admin' }),
+      me: async () => {
+        const storedUser = localStorage.getItem('pdrrmo_user');
+        return storedUser ? JSON.parse(storedUser) : null;
+      },
+      login: async (email, password) => {
+        // Bootstrap: Specific email automatically becomes admin
+        let role = 'citizen';
+        if (email.includes('admin') || email === 'i.am.sam052408@gmail.com') role = 'admin';
+        if (email.includes('eoc')) role = 'eoc_personnel';
+
+        const user = {
+          id: email === 'i.am.sam052408@gmail.com' ? 'super-admin' : 'cit-1',
+          name: email === 'i.am.sam052408@gmail.com' ? 'Sam (Admin)' : 'User',
+          role,
+          email
+        };
+
+        localStorage.setItem('pdrrmo_user', JSON.stringify(user));
+        localStorage.setItem('pdrrmo_token', 'token-' + user.role);
+        return { user, token: 'token-' + user.role };
+      },
+      register: async (data) => {
+        // Bootstrap: New registration with this email automatically gets Admin role
+        const role = data.email === 'i.am.sam052408@gmail.com' ? 'admin' : 'citizen';
+        const user = { id: Math.random().toString(36).substr(2, 9), ...data, role };
+        localStorage.setItem('pdrrmo_user', JSON.stringify(user));
+        return user;
+      },
       logout: (url) => {
-        localStorage.clear();
-        if (url) window.location.href = url;
+        localStorage.removeItem('pdrrmo_user');
+        localStorage.removeItem('pdrrmo_token');
+        if (url) window.location.href = url; else window.location.reload();
       },
       redirectToLogin: (url) => {
-        window.location.href = `https://cnpdrrmceoc.vercel.app/login?returnTo=${url}`;
+        window.location.href = '/login';
       }
     },
     entities: new Proxy({}, entityHandler)
