@@ -22,8 +22,6 @@ node_modules/
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
-.npmrc
-frontend/.npmrc
 .env
 .env.local
 .env.*.local
