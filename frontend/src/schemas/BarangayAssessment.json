@@ -1,0 +1,90 @@
+{
+  "name": "BarangayAssessment",
+  "type": "object",
+  "properties": {
+    "barangay": {
+      "type": "string"
+    },
+    "municipality": {
+      "type": "string"
+    },
+    "submitter_name": {
+      "type": "string"
+    },
+    "submitter_contact": {
+      "type": "string"
+    },
+    "flood_exposure": {
+      "type": "string",
+      "enum": [
+        "none",
+        "low",
+        "moderate",
+        "high",
+        "very_high"
+      ],
+      "default": "none"
+    },
+    "landslide_exposure": {
+      "type": "string",
+      "enum": [
+        "none",
+        "low",
+        "moderate",
+        "high",
+        "very_high"
+      ],
+      "default": "none"
+    },
+    "storm_surge_exposure": {
+      "type": "string",
+      "enum": [
+        "none",
+        "low",
+        "moderate",
+        "high",
+        "very_high"
+      ],
+      "default": "none"
+    },
+    "total_households": {
+      "type": "number"
+    },
+    "vulnerable_households": {
+      "type": "number",
+      "description": "Households with elderly, PWD, pregnant women"
+    },
+    "evacuation_center": {
+      "type": "string"
+    },
+    "evacuation_travel_time_minutes": {
+      "type": "number"
+    },
+    "road_accessibility": {
+      "type": "string",
+      "enum": [
+        "passable",
+        "passable_with_restriction",
+        "impassable"
+      ],
+      "default": "passable"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "submitted",
+        "verified",
+        "needs_update"
+      ],
+      "default": "submitted"
+    }
+  },
+  "required": [
+    "barangay",
+    "municipality",
+    "submitter_name"
+  ]
+}

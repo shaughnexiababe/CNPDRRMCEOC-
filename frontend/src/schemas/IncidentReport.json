@@ -1,0 +1,89 @@
+{
+  "name": "IncidentReport",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "flood",
+        "landslide",
+        "storm_surge",
+        "fire",
+        "road_collapse",
+        "structural_damage",
+        "evacuation",
+        "rescue",
+        "other"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "reported",
+        "verified",
+        "responding",
+        "resolved"
+      ],
+      "default": "reported"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "default": "medium"
+    },
+    "description": {
+      "type": "string"
+    },
+    "municipality": {
+      "type": "string"
+    },
+    "barangay": {
+      "type": "string"
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "reporter_name": {
+      "type": "string"
+    },
+    "reporter_contact": {
+      "type": "string"
+    },
+    "photo_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "affected_families": {
+      "type": "number"
+    },
+    "affected_persons": {
+      "type": "number"
+    },
+    "casualties": {
+      "type": "number",
+      "default": 0
+    },
+    "injuries": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "title",
+    "type",
+    "municipality"
+  ]
+}

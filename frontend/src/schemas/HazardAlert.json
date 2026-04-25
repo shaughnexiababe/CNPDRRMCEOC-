@@ -1,0 +1,81 @@
+{
+  "name": "HazardAlert",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Alert title"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "flood",
+        "landslide",
+        "storm_surge",
+        "typhoon",
+        "earthquake",
+        "volcanic"
+      ],
+      "description": "Type of hazard"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "low",
+        "moderate",
+        "high",
+        "very_high"
+      ],
+      "description": "Severity level"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "monitoring",
+        "resolved",
+        "expired"
+      ],
+      "default": "active"
+    },
+    "description": {
+      "type": "string"
+    },
+    "affected_municipality": {
+      "type": "string"
+    },
+    "affected_barangays": {
+      "type": "string",
+      "description": "Comma-separated list of affected barangays"
+    },
+    "estimated_affected_households": {
+      "type": "number"
+    },
+    "estimated_affected_population": {
+      "type": "number"
+    },
+    "source": {
+      "type": "string",
+      "description": "Source agency (PAGASA, PHIVOLCS, etc.)"
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "title",
+    "type",
+    "severity"
+  ]
+}

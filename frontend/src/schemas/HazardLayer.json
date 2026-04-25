@@ -1,0 +1,49 @@
+{
+  "name": "HazardLayer",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "flood",
+        "landslide",
+        "storm_surge",
+        "liquefaction",
+        "fault_line",
+        "custom"
+      ]
+    },
+    "format": {
+      "type": "string",
+      "enum": [
+        "geojson",
+        "kml"
+      ],
+      "default": "geojson"
+    },
+    "file_url": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "municipality": {
+      "type": "string",
+      "description": "If layer is municipality-specific"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "name",
+    "type"
+  ]
+}

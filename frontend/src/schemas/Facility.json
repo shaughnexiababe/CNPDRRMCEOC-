@@ -1,0 +1,97 @@
+{
+  "name": "Facility",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "hospital",
+        "school",
+        "evacuation_center",
+        "fire_station",
+        "police_station",
+        "barangay_hall",
+        "government_building",
+        "bridge",
+        "road",
+        "other"
+      ]
+    },
+    "municipality": {
+      "type": "string"
+    },
+    "barangay": {
+      "type": "string"
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "capacity": {
+      "type": "number",
+      "description": "Capacity in persons (for evacuation centers)"
+    },
+    "current_occupancy": {
+      "type": "number",
+      "default": 0
+    },
+    "contact_person": {
+      "type": "string"
+    },
+    "contact_number": {
+      "type": "string"
+    },
+    "flood_exposure": {
+      "type": "string",
+      "enum": [
+        "none",
+        "low",
+        "moderate",
+        "high",
+        "very_high"
+      ],
+      "default": "none"
+    },
+    "landslide_exposure": {
+      "type": "string",
+      "enum": [
+        "none",
+        "low",
+        "moderate",
+        "high",
+        "very_high"
+      ],
+      "default": "none"
+    },
+    "storm_surge_exposure": {
+      "type": "string",
+      "enum": [
+        "none",
+        "low",
+        "moderate",
+        "high",
+        "very_high"
+      ],
+      "default": "none"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "operational",
+        "damaged",
+        "non_operational"
+      ],
+      "default": "operational"
+    }
+  },
+  "required": [
+    "name",
+    "type",
+    "municipality"
+  ]
+}
