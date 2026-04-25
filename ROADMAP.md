@@ -15,6 +15,7 @@
 - [x] MapLibre integration for base map visualization.
 - [x] Basic GeoJSON layer management.
 - [x] Hardcoded Bounding Boxes for all 12 municipalities in Camarines Norte.
+- [x] Production Vercel + GitHub Deployment Setup.
 - [ ] Administrative boundary overlays (Provinces, Municipalities, Barangays) via GeoJSON.
 
 ### Phase 2: Interoperability & External Data
