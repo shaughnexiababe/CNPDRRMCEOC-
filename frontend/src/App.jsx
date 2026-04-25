@@ -15,9 +15,13 @@ import FieldReports from '@/pages/FieldReports';
 import Facilities from '@/pages/Facilities';
 import DataLayers from '@/pages/DataLayers';
 import BarangayAssessments from '@/pages/BarangayAssessments';
+import Login from '@/pages/Login';
+
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { Navigate } from 'react-router-dom';
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError, isAuthenticated } = useAuth();
 
   // Show loading spinner while checking app public settings or auth
   if (isLoadingPublicSettings || isLoadingAuth) {
@@ -28,31 +32,26 @@ const AuthenticatedApp = () => {
     );
   }
 
-  // Handle authentication errors
-  if (authError) {
-    if (authError.type === 'user_not_registered') {
-      return <UserNotRegisteredError />;
-    } else if (authError.type === 'auth_required') {
-      // Redirect to login automatically
-      navigateToLogin();
-      return null;
-    }
-  }
-
   // Render the main app
   return (
     <Routes>
-      <Route element={<AppLayout />}>
-        <Route path="/" element={<StrategicDashboard />} />
-        <Route path="/map" element={<GISMapPage />} />
-        <Route path="/operations" element={<OperationsCenter />} />
-        <Route path="/analytics" element={<RiskAnalytics />} />
-        <Route path="/alerts" element={<HazardAlerts />} />
-        <Route path="/incidents" element={<FieldReports />} />
-        <Route path="/facilities" element={<Facilities />} />
-        <Route path="/layers" element={<DataLayers />} />
-        <Route path="/assessments" element={<BarangayAssessments />} />
+      <Route path="/login" element={<Login />} />
+
+      {/* Protected Routes */}
+      <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" />} />}>
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<StrategicDashboard />} />
+          <Route path="/map" element={<GISMapPage />} />
+          <Route path="/operations" element={<OperationsCenter />} />
+          <Route path="/analytics" element={<RiskAnalytics />} />
+          <Route path="/alerts" element={<HazardAlerts />} />
+          <Route path="/incidents" element={<FieldReports />} />
+          <Route path="/facilities" element={<Facilities />} />
+          <Route path="/layers" element={<DataLayers />} />
+          <Route path="/assessments" element={<BarangayAssessments />} />
+        </Route>
       </Route>
+
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );

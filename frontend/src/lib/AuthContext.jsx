@@ -91,11 +91,14 @@ export const AuthProvider = ({ children }) => {
 
   const checkUserAuth = async () => {
     try {
-      // Now check if the user is authenticated
       setIsLoadingAuth(true);
       const currentUser = await cnpdrrmceoc.auth.me();
-      setUser(currentUser);
-      setIsAuthenticated(true);
+      if (currentUser) {
+        setUser(currentUser);
+        setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
+      }
       setIsLoadingAuth(false);
       setAuthChecked(true);
     } catch (error) {
@@ -103,33 +106,31 @@ export const AuthProvider = ({ children }) => {
       setIsLoadingAuth(false);
       setIsAuthenticated(false);
       setAuthChecked(true);
-
-      // If user auth fails, it might be an expired token
-      if (error.status === 401 || error.status === 403) {
-        setAuthError({
-          type: 'auth_required',
-          message: 'Authentication required'
-        });
-      }
     }
+  };
+
+  const login = async (email, password) => {
+    const result = await cnpdrrmceoc.auth.login(email, password);
+    setUser(result.user);
+    setIsAuthenticated(true);
+    return result;
+  };
+
+  const register = async (data) => {
+    const user = await cnpdrrmceoc.auth.register(data);
+    setUser(user);
+    setIsAuthenticated(true);
+    return user;
   };
 
   const logout = (shouldRedirect = true) => {
     setUser(null);
     setIsAuthenticated(false);
-
-    if (shouldRedirect) {
-      // Use the SDK's logout method which handles token cleanup and redirect
-      cnpdrrmceoc.auth.logout(window.location.href);
-    } else {
-      // Just remove the token without redirect
-      cnpdrrmceoc.auth.logout();
-    }
+    cnpdrrmceoc.auth.logout(shouldRedirect ? window.location.origin : null);
   };
 
   const navigateToLogin = () => {
-    // Use the SDK's redirectToLogin method
-    cnpdrrmceoc.auth.redirectToLogin(window.location.href);
+    window.location.href = '/login';
   };
 
   return (
@@ -141,6 +142,8 @@ export const AuthProvider = ({ children }) => {
       authError,
       appPublicSettings,
       authChecked,
+      login,
+      register,
       logout,
       navigateToLogin,
       checkUserAuth,

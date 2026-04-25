@@ -9,20 +9,24 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
+import { useAuth } from '@/lib/AuthContext';
+
 const navItems = [
-  { path: '/', icon: LayoutDashboard, label: 'Strategic Overview' },
-  { path: '/map', icon: Map, label: 'GIS Map' },
-  { path: '/operations', icon: Radio, label: 'Operations Center' },
-  { path: '/analytics', icon: Activity, label: 'Risk Analytics' },
-  { path: '/alerts', icon: AlertTriangle, label: 'Hazard Alerts' },
-  { path: '/incidents', icon: FileText, label: 'Field Reports' },
-  { path: '/facilities', icon: Building2, label: 'Facilities' },
-  { path: '/layers', icon: Layers, label: 'Data Layers' },
-  { path: '/assessments', icon: ClipboardList, label: 'Barangay Assessments' },
+  { path: '/', icon: LayoutDashboard, label: 'Strategic Overview', roles: ['admin', 'eoc_personnel', 'citizen'] },
+  { path: '/map', icon: Map, label: 'GIS Map', roles: ['admin', 'eoc_personnel', 'citizen'] },
+  { path: '/operations', icon: Radio, label: 'Operations Center', roles: ['admin', 'eoc_personnel'] },
+  { path: '/analytics', icon: Activity, label: 'Risk Analytics', roles: ['admin', 'eoc_personnel'] },
+  { path: '/alerts', icon: AlertTriangle, label: 'Hazard Alerts', roles: ['admin', 'eoc_personnel', 'citizen'] },
+  { path: '/incidents', icon: FileText, label: 'Field Reports', roles: ['admin', 'eoc_personnel', 'citizen'] },
+  { path: '/facilities', icon: Building2, label: 'Facilities', roles: ['admin', 'eoc_personnel'] },
+  { path: '/layers', icon: Layers, label: 'Data Layers', roles: ['admin'] },
+  { path: '/assessments', icon: ClipboardList, label: 'Barangay Assessments', roles: ['admin', 'eoc_personnel'] },
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {
   const location = useLocation();
+  const { user } = useAuth();
+  const userRole = user?.role || 'citizen';
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -46,7 +50,7 @@ export default function Sidebar({ collapsed, onToggle }) {
 
         {/* Nav */}
         <nav className="flex-1 py-3 px-2 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
+          {navItems.filter(item => item.roles.includes(userRole)).map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
             const link = (
