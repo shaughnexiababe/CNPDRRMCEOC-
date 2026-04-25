@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Plus, MapPin, Users, Camera, Upload } from 'lucide-react';
 import { MUNICIPALITIES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
@@ -87,6 +87,9 @@ export default function FieldReports() {
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Submit Field Report</DialogTitle>
+              <DialogDescription>
+                Provide details about the incident or assessment in the field. This will be sent to the Operations Center.
+              </DialogDescription>
             </DialogHeader>
             <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(form); }} className="space-y-4">
               <div>

@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Plus, AlertTriangle, Clock, MapPin } from 'lucide-react';
 import { MUNICIPALITIES, HAZARD_TYPES, SEVERITY_LEVELS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
@@ -87,6 +87,9 @@ export default function HazardAlerts() {
             <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create Hazard Alert</DialogTitle>
+                <DialogDescription>
+                  Create an official hazard alert for the province. This will be broadcasted to all users.
+                </DialogDescription>
               </DialogHeader>
               <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(form); }} className="space-y-4">
                 <div>

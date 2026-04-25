@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Plus, MapPin, Building2, Search } from 'lucide-react';
 import { MUNICIPALITIES, FACILITY_TYPES, SEVERITY_LEVELS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
@@ -68,6 +68,9 @@ export default function Facilities() {
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Register Facility</DialogTitle>
+              <DialogDescription>
+                Register a new critical facility like an evacuation center, hospital, or government building.
+              </DialogDescription>
             </DialogHeader>
             <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(form); }} className="space-y-4">
               <div>

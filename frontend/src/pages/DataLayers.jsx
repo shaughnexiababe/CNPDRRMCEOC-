@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Plus, Layers, Upload, Database, FileText } from 'lucide-react';
 import { MUNICIPALITIES, HAZARD_TYPES } from '@/lib/constants';
 
@@ -72,6 +72,9 @@ export default function DataLayers() {
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Upload Hazard Layer</DialogTitle>
+              <DialogDescription>
+                Add a new GeoJSON or KML layer to the GIS map. This data will be available for situational awareness.
+              </DialogDescription>
             </DialogHeader>
             <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(form); }} className="space-y-4">
               <div>
