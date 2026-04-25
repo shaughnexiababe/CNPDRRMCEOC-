@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, UserPlus, Shield, HardHat, User, MoreVertical, Trash2 } from 'lucide-react';
+import { Users as UsersIcon, UserPlus, Shield, HardHat, User, MoreVertical, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function UserManagement() {
@@ -67,7 +67,7 @@ export default function UserManagement() {
           <p>Loading users...</p>
         ) : filteredUsers.length === 0 ? (
           <Card className="p-12 text-center">
-            <Users className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-20" />
+            <UsersIcon className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-20" />
             <p className="text-muted-foreground">No users matching filter</p>
           </Card>
         ) : (

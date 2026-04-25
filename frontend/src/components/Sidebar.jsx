@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   Map, LayoutDashboard, AlertTriangle, FileText,
   Building2, Layers, Shield, ChevronLeft, ChevronRight,
-  Activity, Radio, ClipboardList, Users
+  Activity, Radio, ClipboardList, Users as UsersIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ const navItems = [
   { path: '/facilities', icon: Building2, label: 'Facilities', roles: ['admin', 'eoc_personnel'] },
   { path: '/layers', icon: Layers, label: 'Data Layers', roles: ['admin'] },
   { path: '/assessments', icon: ClipboardList, label: 'Barangay Assessments', roles: ['admin', 'eoc_personnel'] },
-  { path: '/users', icon: Users, label: 'User Management', roles: ['admin'] },
+  { path: '/users', icon: UsersIcon, label: 'User Management', roles: ['admin'] },
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {
