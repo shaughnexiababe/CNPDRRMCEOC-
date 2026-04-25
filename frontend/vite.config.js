@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => {
 
   if (isMock) {
     console.log("🛠️ Building with SDK Mock/Shim");
+    // Handle both the main package and the deep axios-client import used in AuthContext
     aliases["@cnpdrrmceoc.vercel.app/sdk/dist/utils/axios-client"] = path.resolve(__dirname, "./src/lib/sdk-shim.js");
     aliases["@cnpdrrmceoc.vercel.app/sdk"] = path.resolve(__dirname, "./src/lib/sdk-shim.js");
   } else {
