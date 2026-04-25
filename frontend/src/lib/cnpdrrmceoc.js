@@ -1,4 +1,4 @@
-import { createClient } from '@cnpdrrmceoc.vercel.app/sdk';
+import { createClient } from '@shaughnexiababe/sdk';
 import { appParams } from '@/lib/app-params';
 
 const { appId, token, functionsVersion, appBaseUrl } = appParams;

@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { cnpdrrmceoc } from '@/lib/cnpdrrmceoc';
 import { appParams } from '@/lib/app-params';
-import { createAxiosClient } from '@cnpdrrmceoc.vercel.app/sdk/dist/utils/axios-client';
+import { createAxiosClient } from '@shaughnexiababe/sdk';
 
 const AuthContext = createContext();
 

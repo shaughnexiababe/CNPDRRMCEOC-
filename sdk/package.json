@@ -1,0 +1,14 @@
+{
+  "name": "@shaughnexiababe/sdk",
+  "version": "1.0.0",
+  "description": "SDK for CN-PDRRMO Emergency Operations Center",
+  "main": "index.js",
+  "type": "module",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shaughnexiababe/CNPDRRMCEOC-.git"
+  }
+}
