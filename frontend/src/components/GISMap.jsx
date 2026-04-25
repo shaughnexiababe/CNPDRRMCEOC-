@@ -12,22 +12,21 @@ function FlyToLocation({ coords, zoom = 13 }) {
   return null;
 }
 
-function RemoteGeoJSON({ url, color }) {
+function RemoteGeoJSON({ url, color, layerName }) {
   const [data, setData] = useState(null);
 
   useEffect(() => {
     if (url) {
-      // In a real app, this would fetch from the actual storage URL
-      // For our mock/local environment, we'll simulate it
       if (url.startsWith('https://mock-storage.com')) {
-         // Simulate a small polygon for the mock upload
          setData({
-           type: "Feature",
-           properties: {},
-           geometry: {
-             type: "Polygon",
-             coordinates: [[[122.9, 14.1], [123.0, 14.1], [123.0, 14.2], [122.9, 14.2], [122.9, 14.1]]]
-           }
+           type: "FeatureCollection",
+           features: [
+             {
+               type: "Feature",
+               properties: { susceptibility: 'very_high', name: 'Sample Critical Area' },
+               geometry: { type: "Polygon", coordinates: [[[122.9, 14.1], [123.0, 14.1], [123.0, 14.2], [122.9, 14.2], [122.9, 14.1]]] }
+             }
+           ]
          });
       } else {
         axios.get(url).then(res => setData(res.data)).catch(console.error);
@@ -36,7 +35,42 @@ function RemoteGeoJSON({ url, color }) {
   }, [url]);
 
   if (!data) return null;
-  return <GeoJSON data={data} style={{ color, fillColor: color, fillOpacity: 0.4 }} />;
+
+  const onEachFeature = (feature, layer) => {
+    if (feature.properties) {
+      const { name, barangay, municipality, susceptibility, info } = feature.properties;
+      layer.bindPopup(`
+        <div class="text-xs font-sans">
+          <p class="font-bold border-b pb-1 mb-1">${name || layerName}</p>
+          ${barangay ? `<p><b>Barangay:</b> ${barangay}</p>` : ''}
+          ${municipality ? `<p><b>Municipality:</b> ${municipality}</p>` : ''}
+          <p class="capitalize"><b>Susceptibility:</b> ${susceptibility?.replace('_', ' ') || 'High'}</p>
+          ${info ? `<p class="mt-1 text-muted-foreground">${info}</p>` : ''}
+        </div>
+      `);
+    }
+  };
+
+  const getStyle = (feature) => {
+    const susc = feature.properties?.susceptibility?.toLowerCase();
+    let fillColor = color;
+
+    // Override color based on MGB/Project NOAH standard susceptibility
+    if (susc === 'very_high' || susc === 'critical') fillColor = '#ef4444'; // Red
+    else if (susc === 'high') fillColor = '#f97316'; // Orange
+    else if (susc === 'moderate' || susc === 'medium') fillColor = '#eab308'; // Yellow
+    else if (susc === 'low') fillColor = '#22c55e'; // Green
+
+    return {
+      fillColor,
+      weight: 1,
+      opacity: 1,
+      color: 'white',
+      fillOpacity: 0.5,
+    };
+  };
+
+  return <GeoJSON data={data} style={getStyle} onEachFeature={onEachFeature} />;
 }
 
 // Fix leaflet default marker icon
@@ -114,7 +148,7 @@ export default function GISMap({
           {/* Custom Hazard Layers */}
           {activeLayers.map((layer) => (
             <LayersControl.Overlay key={layer.id} checked name={`Layer: ${layer.name}`}>
-              <RemoteGeoJSON url={layer.file_url} color={hazardOverlayColors[layer.type] || '#6B7280'} />
+              <RemoteGeoJSON url={layer.file_url} color={hazardOverlayColors[layer.type] || '#6B7280'} layerName={layer.name} />
             </LayersControl.Overlay>
           ))}
 

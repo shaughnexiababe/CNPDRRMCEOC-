@@ -31,9 +31,16 @@ fun MapViewContainer(
         MapView(context).apply {
             getMapAsync { map ->
                 map.setStyle(Style.Builder().fromUri("https://demotiles.maplibre.org/style.json")) { style ->
-                    // Logic to load local .mbtiles if available
-                    // This is a placeholder for where you'd add a local MBTiles source
-                    // e.g., style.addSource(VectorSource("local-source", "asset://cam_norte_basemap.mbtiles"))
+                    // OFFLINE MAP LOGIC:
+                    // If you have a local .mbtiles file in assets, you can add it here.
+                    // e.g. style.addSource(VectorSource("offline-source", "asset://cam_norte_basemap.mbtiles"))
+                    // This allows the map to render even without internet connection.
+                }
+                
+                // Enable Location if permissions granted
+                map.addOnMapClickListener {
+                    // Logic for custom pin dropping in the field
+                    true
                 }
                 // Focus on Camarines Norte center (approx)
                 map.cameraPosition = CameraPosition.Builder()

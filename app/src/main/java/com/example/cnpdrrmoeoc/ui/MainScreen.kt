@@ -139,12 +139,24 @@ fun OperationalView(viewModel: GisViewModel = hiltViewModel()) {
 
                     // Add GeoJSON source and layer
                     style.addSource(GeoJsonSource(sourceId, floodData))
-                    style.addLayer(
-                        FillLayer(layerId, sourceId).withProperties(
-                            PropertyFactory.fillColor("#77ff0000"), // Transparent red
-                            PropertyFactory.fillOpacity(0.5f)
-                        )
+                    
+                    // Android MapLibre Layer with dynamic color logic
+                    val layer = FillLayer(layerId, sourceId)
+                    layer.setProperties(
+                        PropertyFactory.fillColor(
+                            org.maplibre.android.style.expressions.Expression.match(
+                                org.maplibre.android.style.expressions.Expression.get("susceptibility"),
+                                org.maplibre.android.style.expressions.Expression.literal("#ef4444"), // default red
+                                org.maplibre.android.style.expressions.Expression.stop("very_high", "#ef4444"),
+                                org.maplibre.android.style.expressions.Expression.stop("high", "#f97316"),
+                                org.maplibre.android.style.expressions.Expression.stop("moderate", "#eab308"),
+                                org.maplibre.android.style.expressions.Expression.stop("low", "#22c55e")
+                            )
+                        ),
+                        PropertyFactory.fillOpacity(0.5f),
+                        PropertyFactory.fillOutlineColor("#ffffff")
                     )
+                    style.addLayer(layer)
                 }
             }
         }

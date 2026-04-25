@@ -20,3 +20,18 @@ data class CriticalFacility(
     val latitude: Double,
     val longitude: Double
 )
+
+@Entity(tableName = "incident_reports")
+data class IncidentReport(
+    @PrimaryKey val id: String = java.util.UUID.randomUUID().toString(),
+    val title: String,
+    val description: String,
+    val type: String,
+    val municipality: String,
+    val barangay: String?,
+    val latitude: Double?,
+    val longitude: Double?,
+    val status: String = "reported",
+    val priority: String = "medium",
+    val createdDate: Long = System.currentTimeMillis()
+)

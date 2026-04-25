@@ -2,6 +2,7 @@ package com.example.cnpdrrmoeoc.di
 
 import com.example.cnpdrrmoeoc.data.remote.AlertApiService
 import com.example.cnpdrrmoeoc.data.remote.GeoRiskApiService
+import com.example.cnpdrrmoeoc.data.remote.IncidentApiService
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -37,6 +38,16 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    @Named("ProductionRetrofit")
+    fun provideProductionRetrofit(): Retrofit {
+        return Retrofit.Builder()
+            .baseUrl("https://cnpdrrmceoc.vercel.app/") 
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+    }
+
+    @Provides
+    @Singleton
     fun provideGeoRiskApiService(@Named("MgbRetrofit") retrofit: Retrofit): GeoRiskApiService {
         return retrofit.create(GeoRiskApiService::class.java)
     }
@@ -45,5 +56,11 @@ object NetworkModule {
     @Singleton
     fun provideAlertApiService(@Named("PhivolcsRetrofit") retrofit: Retrofit): AlertApiService {
         return retrofit.create(AlertApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideIncidentApiService(@Named("ProductionRetrofit") retrofit: Retrofit): IncidentApiService {
+        return retrofit.create(IncidentApiService::class.java)
     }
 }

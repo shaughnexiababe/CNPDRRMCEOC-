@@ -1,15 +1,30 @@
 package com.example.cnpdrrmoeoc.data.repository
 
+import com.example.cnpdrrmoeoc.data.IncidentReport
 import com.example.cnpdrrmoeoc.data.remote.AlertApiService
 import com.example.cnpdrrmoeoc.data.remote.GeoRiskApiService
+import com.example.cnpdrrmoeoc.data.remote.IncidentApiService
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class GisRepository @Inject constructor(
     private val geoRiskApi: GeoRiskApiService,
-    private val alertApi: AlertApiService
+    private val alertApi: AlertApiService,
+    private val incidentApi: IncidentApiService
 ) {
+    /**
+     * Submits a field incident report to the EOC backend.
+     */
+    suspend fun submitIncidentReport(report: IncidentReport): Boolean {
+        return try {
+            val response = incidentApi.submitReport(report)
+            response.isSuccessful
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
     /**
      * Fetches Flood susceptibility from MGB ArcGIS for Camarines Norte.
      */
