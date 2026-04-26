@@ -31,10 +31,32 @@ export default function Facilities() {
     storm_surge_exposure: 'none', status: 'operational',
   });
 
-  const { data: facilities = [], isLoading } = useQuery({
-    queryKey: ['facilities'],
+  const { data: facilities = [], isLoading: isLoadingRegistry } = useQuery({
+    queryKey: ['facilities-registry'],
     queryFn: () => cnpdrrmceoc.entities.Facility.list('-created_date', 500),
   });
+
+  const { data: layers = [], isLoading: isLoadingLayers } = useQuery({
+    queryKey: ['layers'],
+    queryFn: () => cnpdrrmceoc.entities.HazardLayer.list('-created_date', 100),
+  });
+
+  // Combine manual registry with uploaded infrastructure layers
+  const allFacilities = [
+    ...facilities,
+    ...layers
+      .filter(l => l.type === 'infrastructure' && l.is_active !== false)
+      .map(l => ({
+        id: l.id,
+        name: l.name,
+        type: 'infrastructure_layer',
+        municipality: l.municipality || 'Province-wide',
+        status: 'operational',
+        is_layer: true
+      }))
+  ];
+
+  const isLoading = isLoadingRegistry || isLoadingLayers;
 
   const createMutation = useMutation({
     mutationFn: (data) => cnpdrrmceoc.entities.Facility.create({
@@ -44,13 +66,13 @@ export default function Facilities() {
       capacity: data.capacity ? Number(data.capacity) : undefined,
     }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['facilities'] });
+      queryClient.invalidateQueries({ queryKey: ['facilities-registry'] });
       setOpen(false);
     },
   });
 
-  const filtered = facilities
-    .filter(f => filterType === 'all' || f.type === filterType)
+  const filtered = allFacilities
+    .filter(f => filterType === 'all' || f.type === filterType || (f.type === 'infrastructure_layer' && filterType === 'other'))
     .filter(f => filterMunicipality === 'all' || f.municipality === filterMunicipality)
     .filter(f => !search || f.name?.toLowerCase().includes(search.toLowerCase()));
 

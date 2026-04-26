@@ -17,6 +17,7 @@ const typeColors = {
   flood: 'bg-blue-500/10 text-blue-600',
   landslide: 'bg-purple-500/10 text-purple-600',
   storm_surge: 'bg-cyan-500/10 text-cyan-600',
+  infrastructure: 'bg-green-500/10 text-green-600',
   liquefaction: 'bg-orange-500/10 text-orange-600',
   fault_line: 'bg-red-500/10 text-red-600',
   custom: 'bg-gray-500/10 text-gray-600',
@@ -40,6 +41,10 @@ export default function DataLayers() {
     mutationFn: (data) => cnpdrrmceoc.entities.HazardLayer.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['layers'] });
+      // If uploading infrastructure, also invalidate facilities cache
+      if (form.type === 'infrastructure') {
+        queryClient.invalidateQueries({ queryKey: ['facilities'] });
+      }
       setOpen(false);
     },
   });
@@ -90,6 +95,7 @@ export default function DataLayers() {
                       <SelectItem value="flood">Flood</SelectItem>
                       <SelectItem value="landslide">Landslide</SelectItem>
                       <SelectItem value="storm_surge">Storm Surge</SelectItem>
+                      <SelectItem value="infrastructure">Critical Infrastructure</SelectItem>
                       <SelectItem value="liquefaction">Liquefaction</SelectItem>
                       <SelectItem value="fault_line">Fault Line</SelectItem>
                       <SelectItem value="custom">Custom</SelectItem>
