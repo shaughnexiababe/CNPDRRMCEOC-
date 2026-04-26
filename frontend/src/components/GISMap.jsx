@@ -81,14 +81,53 @@ function RemoteGeoJSON({ url, color, layerName }) {
   return <GeoJSON data={data} style={getStyle} onEachFeature={onEachFeature} />;
 }
 
-// Fix leaflet default marker icon
 import L from 'leaflet';
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+import { renderToStaticMarkup } from 'react-dom/server';
+import {
+  Hospital, GraduationCap, Home, Flame,
+  Shield, Building2, Landmark, ArrowLeftRight
+} from 'lucide-react';
+
+// Create a custom icon generator using Lucide icons
+const createFacilityIcon = (type, isAtRisk) => {
+  const iconMap = {
+    hospital: Hospital,
+    school: GraduationCap,
+    evacuation_center: Home,
+    fire_station: Flame,
+    police_station: Shield,
+    barangay_hall: Building2,
+    government_building: Landmark,
+    bridge: ArrowLeftRight,
+  };
+
+  const IconComponent = iconMap[type] || Building2;
+  const color = isAtRisk ? '#ef4444' : (facilityColors[type] || '#6B7280');
+
+  const iconHtml = renderToStaticMarkup(
+    <div style={{
+      backgroundColor: 'white',
+      borderRadius: '50%',
+      padding: '5px',
+      border: `2px solid ${color}`,
+      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: isAtRisk ? '36px' : '30px',
+      height: isAtRisk ? '36px' : '30px',
+    }}>
+      <IconComponent size={isAtRisk ? 20 : 16} color={color} />
+    </div>
+  );
+
+  return L.divIcon({
+    html: iconHtml,
+    className: 'custom-facility-icon',
+    iconSize: [isAtRisk ? 36 : 30, isAtRisk ? 36 : 30],
+    iconAnchor: [isAtRisk ? 18 : 15, isAtRisk ? 18 : 15],
+  });
+};
 
 const facilityColors = {
   hospital: '#EF4444',
@@ -166,14 +205,10 @@ export default function GISMap({
               {facilityMarkers.map((f) => {
                 const isHighlighted = highlightedIds.includes(f.id);
                 return (
-                  <CircleMarker
+                  <Marker
                     key={f.id}
-                    center={[f.latitude, f.longitude]}
-                    radius={isHighlighted ? 10 : 6}
-                    fillColor={isHighlighted ? "#ff0000" : (facilityColors[f.type] || '#6B7280')}
-                    fillOpacity={0.8}
-                    color="#fff"
-                    weight={isHighlighted ? 4 : 2}
+                    position={[f.latitude, f.longitude]}
+                    icon={createFacilityIcon(f.type, isHighlighted)}
                   >
                     <Popup>
                       <div className="text-xs">
@@ -184,7 +219,7 @@ export default function GISMap({
                         {f.capacity && <><br />Capacity: {f.capacity}</>}
                       </div>
                     </Popup>
-                  </CircleMarker>
+                  </Marker>
                 );
               })}
             </React.Fragment>
