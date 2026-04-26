@@ -73,7 +73,7 @@ export default function GISMapPage() {
 
   const facilityTypeCounts = {};
   filteredFacilities.forEach(f => {
-    facilityTypeCounts[f.type] = (facilityTypeCounts[f.type] || 0) + 1;
+    if (f.type) facilityTypeCounts[f.type] = (facilityTypeCounts[f.type] || 0) + 1;
   });
 
   return (
