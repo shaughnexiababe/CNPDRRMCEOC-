@@ -113,6 +113,7 @@ export default function GISMap({
   alerts = [],
   incidents = [],
   layers = [],
+  highlightedIds = [],
   className,
   height = '500px',
   flyTo = null,
@@ -161,26 +162,30 @@ export default function GISMap({
 
           <LayersControl.Overlay checked name="Facilities">
             <React.Fragment>
-              {facilityMarkers.map((f) => (
-                <CircleMarker
-                  key={f.id}
-                  center={[f.latitude, f.longitude]}
-                  radius={6}
-                  fillColor={facilityColors[f.type] || '#6B7280'}
-                  fillOpacity={0.8}
-                  color="#fff"
-                  weight={2}
-                >
-                  <Popup>
-                    <div className="text-xs">
-                      <strong>{f.name}</strong>
-                      <br />Type: {f.type?.replace(/_/g, ' ')}
-                      <br />Municipality: {f.municipality}
-                      {f.capacity && <><br />Capacity: {f.capacity}</>}
-                    </div>
-                  </Popup>
-                </CircleMarker>
-              ))}
+              {facilityMarkers.map((f) => {
+                const isHighlighted = highlightedIds.includes(f.id);
+                return (
+                  <CircleMarker
+                    key={f.id}
+                    center={[f.latitude, f.longitude]}
+                    radius={isHighlighted ? 10 : 6}
+                    fillColor={isHighlighted ? "#ff0000" : (facilityColors[f.type] || '#6B7280')}
+                    fillOpacity={0.8}
+                    color="#fff"
+                    weight={isHighlighted ? 4 : 2}
+                  >
+                    <Popup>
+                      <div className="text-xs">
+                        {isHighlighted && <Badge variant="destructive" className="mb-2 text-[8px] h-4">AT RISK</Badge>}
+                        <br /><strong>{f.name}</strong>
+                        <br />Type: {f.type?.replace(/_/g, ' ')}
+                        <br />Municipality: {f.municipality}
+                        {f.capacity && <><br />Capacity: {f.capacity}</>}
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                );
+              })}
             </React.Fragment>
           </LayersControl.Overlay>
 

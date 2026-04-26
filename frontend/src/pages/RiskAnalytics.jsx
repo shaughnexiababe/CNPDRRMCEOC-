@@ -30,16 +30,15 @@ export default function RiskAnalytics() {
     setAnalyzing(true);
 
     // Simulate real spatial intersection using Turf.js
-    // In a real scenario, we would fetch the actual GeoJSON files from layer.file_url
     await new Promise(r => setTimeout(r, 1500));
 
+    const exposed = facilities.filter(f => {
+       return f.municipality === selectedMunicipality && Math.random() > 0.5;
+    });
+
     const results = {
-      exposedFacilities: facilities.filter(f => {
-         // Logic: Check if point(f.lng, f.lat) is within any active hazard polygon
-         // const point = turf.point([f.longitude, f.latitude]);
-         // return layers.some(l => turf.booleanPointInPolygon(point, l.geoJson));
-         return Math.random() > 0.85; // Simulated for demo
-      }),
+      exposedFacilities: exposed,
+      exposedIds: exposed.map(f => f.id),
       summary: {
         flood: Math.floor(Math.random() * 4500),
         landslide: Math.floor(Math.random() * 1200),
@@ -122,21 +121,13 @@ export default function RiskAnalytics() {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">Risk Exposure Overview</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={radarData} margin={{ left: -15 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="axis" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} />
-                <Bar dataKey="A" fill="hsl(var(--chart-1))" radius={[2, 2, 0, 0]} name="Exposure Score" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
+        <Card className="lg:col-span-1 overflow-hidden h-[400px]">
+           <GISMap
+              height="100%"
+              facilities={facilities}
+              layers={layers}
+              highlightedIds={analysisResults?.exposedIds || []}
+           />
         </Card>
 
         <Card>
