@@ -111,15 +111,13 @@ export const createClient = ({ appId, token, appBaseUrl }) => {
     integrations: {
       Core: {
         UploadFile: async ({ file }) => {
-          // IMPORTANT: To see real shapes, we read the actual uploaded file content
+          // Fix: Use readAsDataURL to handle Unicode characters correctly
           return new Promise((resolve) => {
             const reader = new FileReader();
             reader.onload = (e) => {
-              const content = e.target.result;
-              // We store the actual GeoJSON content in the "URL" for the mock to read later
-              resolve({ file_url: `data:application/json;base64,${btoa(content)}` });
+              resolve({ file_url: e.target.result });
             };
-            reader.readAsText(file);
+            reader.readAsDataURL(file);
           });
         }
       }

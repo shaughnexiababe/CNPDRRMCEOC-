@@ -81,8 +81,14 @@ export const createClient = ({ appId, token, appBaseUrl }) => {
     integrations: {
       Core: {
         UploadFile: async ({ file }) => {
-          console.log('Mock: Uploading file', file.name);
-          return { file_url: `https://mock-storage.com/${file.name}` };
+          // Use readAsDataURL to handle Unicode characters and large files correctly
+          return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              resolve({ file_url: e.target.result });
+            };
+            reader.readAsDataURL(file);
+          });
         }
       }
     }
