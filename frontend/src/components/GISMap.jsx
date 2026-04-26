@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, LayersControl, CircleMarker, us
 import { MAP_CENTER, MAP_ZOOM } from '@/lib/constants';
 import 'leaflet/dist/leaflet.css';
 import axios from 'axios';
+import { Badge } from '@/components/ui/badge';
 
 function FlyToLocation({ coords, zoom = 13 }) {
   const map = useMap();
