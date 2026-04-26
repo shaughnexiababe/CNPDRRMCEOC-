@@ -10,6 +10,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { MUNICIPALITIES, SEVERITY_LEVELS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import * as turf from '@turf/turf';
+import GISMap from '@/components/GISMap';
 
 export default function RiskAnalytics() {
   const [selectedMunicipality, setSelectedMunicipality] = useState('Daet');
