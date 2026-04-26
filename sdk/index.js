@@ -77,6 +77,14 @@ export const createClient = ({ appId, token, appBaseUrl }) => {
         window.location.href = '/login';
       }
     },
-    entities: new Proxy({}, entityHandler)
+    entities: new Proxy({}, entityHandler),
+    integrations: {
+      Core: {
+        UploadFile: async ({ file }) => {
+          console.log('Mock: Uploading file', file.name);
+          return { file_url: `https://mock-storage.com/${file.name}` };
+        }
+      }
+    }
   };
 };
