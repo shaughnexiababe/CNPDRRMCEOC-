@@ -111,17 +111,35 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (email, password) => {
-    const result = await cnpdrrmceoc.auth.login(email, password);
-    setUser(result.user);
-    setIsAuthenticated(true);
-    return result;
+    try {
+      setIsLoadingAuth(true);
+      const result = await cnpdrrmceoc.auth.login(email, password);
+      setUser(result.user);
+      setIsAuthenticated(true);
+      setAuthChecked(true);
+      return result;
+    } catch (error) {
+      console.error('Login failed:', error);
+      throw error;
+    } finally {
+      setIsLoadingAuth(false);
+    }
   };
 
   const register = async (data) => {
-    const user = await cnpdrrmceoc.auth.register(data);
-    setUser(user);
-    setIsAuthenticated(true);
-    return user;
+    try {
+      setIsLoadingAuth(true);
+      const user = await cnpdrrmceoc.auth.register(data);
+      setUser(user);
+      setIsAuthenticated(true);
+      setAuthChecked(true);
+      return user;
+    } catch (error) {
+      console.error('Registration failed:', error);
+      throw error;
+    } finally {
+      setIsLoadingAuth(false);
+    }
   };
 
   const logout = (shouldRedirect = true) => {
