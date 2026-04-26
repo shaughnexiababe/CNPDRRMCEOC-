@@ -33,7 +33,32 @@ export const createClient = ({ appId, token, appBaseUrl }) => {
           if (items.length === 0) {
             // ... (Seeding code same as before but keeping it clean)
             if (entityName === 'HazardLayer') items = [
-              { id: 'l1', name: 'Flood Susceptibility (MGB)', type: 'flood', format: 'geojson', is_active: true, file_url: 'https://raw.githubusercontent.com/gynvael/geojson-repository/master/camarines_norte_sample.geojson' }
+              { id: 'l1', name: 'Flood Susceptibility (MGB)', type: 'flood', format: 'geojson', is_active: true, file_url: 'https://raw.githubusercontent.com/gynvael/geojson-repository/master/camarines_norte_sample.geojson' },
+              {
+                id: 'l2',
+                name: 'Bagasbas High Risk Area',
+                type: 'flood',
+                format: 'geojson',
+                is_active: true,
+                file_url: 'data:application/json;base64,' + btoa(JSON.stringify({
+                  "type": "FeatureCollection",
+                  "features": [
+                    {
+                      "type": "Feature",
+                      "properties": {
+                        "name": "High Risk Purok 1",
+                        "barangay": "Bagasbas",
+                        "susceptibility": "very_high",
+                        "info": "Frequent coastal flooding reported."
+                      },
+                      "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[[122.98, 14.12], [122.99, 14.12], [122.99, 14.13], [122.98, 14.13], [122.98, 14.12]]]
+                      }
+                    }
+                  ]
+                }))
+              }
             ];
             saveCache(entityName, items);
           }
