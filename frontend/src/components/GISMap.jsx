@@ -17,14 +17,21 @@ function RemoteGeoJSON({ url, color, layerName }) {
 
   useEffect(() => {
     if (url) {
-      if (url.startsWith('https://mock-storage.com')) {
+      if (url.startsWith('data:application/json;base64,')) {
+        try {
+          const jsonString = atob(url.split(',')[1]);
+          setData(JSON.parse(jsonString));
+        } catch (e) {
+          console.error("Failed to parse base64 GeoJSON", e);
+        }
+      } else if (url.startsWith('https://mock-storage.com')) {
          setData({
            type: "FeatureCollection",
            features: [
              {
                type: "Feature",
-               properties: { susceptibility: 'very_high', name: 'Sample Critical Area' },
-               geometry: { type: "Polygon", coordinates: [[[122.9, 14.1], [123.0, 14.1], [123.0, 14.2], [122.9, 14.2], [122.9, 14.1]]] }
+               properties: { susceptibility: 'very_high', name: 'Sample Site Boundary' },
+               geometry: { type: "Polygon", coordinates: [[[122.9553, 14.1173], [123.0156, 14.1089], [122.9734, 14.1256], [122.9553, 14.1173]]] }
              }
            ]
          });
