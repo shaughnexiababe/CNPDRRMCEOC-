@@ -258,118 +258,102 @@ export default function GISMap({
           ))}
 
           {/* Official GeoRiskPH Authoritative Layers */}
-          {GEORISK_LAYERS_CONFIG.map((layer) => (
-            <LayersControl.Overlay key={layer.id} name={layer.name}>
+          {GEORISK_LAYERS_CONFIG && GEORISK_LAYERS_CONFIG.map((layer) => (
+            <LayersControl.Overlay key={`georisk-${layer.id}`} name={layer.name}>
               <ArcGISLayer url={layer.url} type={layer.type} opacity={0.6} />
             </LayersControl.Overlay>
           ))}
 
-          {densityMarkers.length > 0 && (
-            <LayersControl.Overlay checked name="Estimated Population Density">
-              <React.Fragment>
-                {densityMarkers.map((m) => (
-                  <CircleMarker
-                    key={m.id}
-                    center={[m.latitude, m.longitude]}
-                    radius={2}
-                    fillColor="#ff4d4f"
-                    fillOpacity={0.4}
-                    stroke={false}
-                  >
-                    <Popup>
-                      <div className="text-[10px]">
-                        <strong>Estimated Exposure Density</strong>
-                        <br />Source: PSA 2020 Census
-                        <br />Hazard: {m.hazardType?.replace('_', ' ')}
-                        <br />Note: Representation based on agency risk ratings.
-                      </div>
-                    </Popup>
-                  </CircleMarker>
-                ))}
-              </React.Fragment>
-            </LayersControl.Overlay>
-          )}
-
-          <LayersControl.Overlay checked name="Facilities">
-            <React.Fragment>
-              {facilityMarkers.map((f) => {
-                const isHighlighted = highlightedIds.includes(f.id);
-                return (
-                  <Marker
-                    key={`${f.id}-${isHighlighted}`}
-                    position={[f.latitude, f.longitude]}
-                    icon={getFacilityIcon(f.type, isHighlighted)}
-                  >
-                    <Popup>
-                      <div className="text-xs space-y-1">
-                        {isHighlighted && <Badge variant="destructive" className="mb-1 text-[8px] h-4">AT RISK</Badge>}
-                        <div className="font-bold border-b pb-1">{f.name}</div>
-                        <div><strong>Type:</strong> {f.type?.replace(/_/g, ' ')}</div>
-                        <div><strong>Muni:</strong> {f.municipality}</div>
-                        {f.exposures && Object.entries(f.exposures).some(([_, v]) => v !== 'none') && (
-                          <div className="pt-1 border-t mt-1">
-                            <strong className="text-[10px] text-destructive">Agency Hazard Tagging:</strong>
-                            {Object.entries(f.exposures)
-                              .filter(([_, v]) => v !== 'none')
-                              .map(([k, v]) => (
-                                <div key={k} className="flex justify-between items-center gap-2 mt-0.5">
-                                  <span className="capitalize text-[9px]">{k.replace('_exposure', '').replace('_', ' ')}:</span>
-                                  <Badge variant="outline" className="text-[8px] h-3.5 px-1 bg-red-50">{v}</Badge>
-                                </div>
-                              ))}
-                          </div>
-                        )}
-                        {f.capacity && <div><strong>Capacity:</strong> {f.capacity}</div>}
-                      </div>
-                    </Popup>
-                  </Marker>
-                );
-              })}
-            </React.Fragment>
-          </LayersControl.Overlay>
-
-          <LayersControl.Overlay checked name="Active Alerts">
-            <React.Fragment>
-              {alertMarkers.map((a) => (
-                <CircleMarker
-                  key={a.id}
-                  center={[a.latitude, a.longitude]}
-                  radius={12}
-                  fillColor={a.severity === 'very_high' ? '#EF4444' : a.severity === 'high' ? '#F97316' : '#F59E0B'}
-                  fillOpacity={0.4}
-                  color={a.severity === 'very_high' ? '#EF4444' : '#F97316'}
-                  weight={2}
-                >
-                  <Popup>
-                    <div className="text-xs">
-                      <strong>{a.title}</strong>
-                      <br />Severity: {a.severity?.replace('_', ' ')}
-                      <br />Type: {a.type}
-                      {a.affected_municipality && <><br />Area: {a.affected_municipality}</>}
-                    </div>
-                  </Popup>
-                </CircleMarker>
-              ))}
-            </React.Fragment>
-          </LayersControl.Overlay>
-
-          <LayersControl.Overlay name="Incident Reports">
-            <React.Fragment>
-              {incidentMarkers.map((i) => (
-                <Marker key={i.id} position={[i.latitude, i.longitude]}>
-                  <Popup>
-                    <div className="text-xs">
-                      <strong>{i.title}</strong>
-                      <br />Type: {i.type?.replace(/_/g, ' ')}
-                      <br />Status: {i.status}
-                      {i.municipality && <><br />{i.municipality}</>}
-                    </div>
-                  </Popup>
-                </Marker>
-              ))}
-            </React.Fragment>
-          </LayersControl.Overlay>
         </LayersControl>
+
+        {/* Markers are rendered outside LayersControl to prevent duplicated labels in the menu */}
+        {facilityMarkers.map((f) => {
+          const isHighlighted = highlightedIds.includes(f.id);
+          return (
+            <Marker
+              key={`facility-${f.id}-${isHighlighted}`}
+              position={[f.latitude, f.longitude]}
+              icon={getFacilityIcon(f.type, isHighlighted)}
+            >
+              <Popup>
+                <div className="text-xs space-y-1">
+                  {isHighlighted && <Badge variant="destructive" className="mb-1 text-[8px] h-4">AT RISK</Badge>}
+                  <div className="font-bold border-b pb-1">{f.name}</div>
+                  <div><strong>Type:</strong> {f.type?.replace(/_/g, ' ')}</div>
+                  <div><strong>Muni:</strong> {f.municipality}</div>
+                  {f.exposures && Object.entries(f.exposures).some(([_, v]) => v !== 'none') && (
+                    <div className="pt-1 border-t mt-1">
+                      <strong className="text-[10px] text-destructive">Agency Hazard Tagging:</strong>
+                      {Object.entries(f.exposures)
+                        .filter(([_, v]) => v !== 'none')
+                        .map(([k, v]) => (
+                          <div key={k} className="flex justify-between items-center gap-2 mt-0.5">
+                            <span className="capitalize text-[9px]">{k.replace('_exposure', '').replace('_', ' ')}:</span>
+                            <Badge variant="outline" className="text-[8px] h-3.5 px-1 bg-red-50">{v}</Badge>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                  {f.capacity && <div><strong>Capacity:</strong> {f.capacity}</div>}
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
+
+        {alertMarkers.map((a) => (
+          <CircleMarker
+            key={`alert-${a.id}`}
+            center={[a.latitude, a.longitude]}
+            radius={12}
+            fillColor={a.severity === 'very_high' ? '#EF4444' : a.severity === 'high' ? '#F97316' : '#F59E0B'}
+            fillOpacity={0.4}
+            color={a.severity === 'very_high' ? '#EF4444' : '#F97316'}
+            weight={2}
+          >
+            <Popup>
+              <div className="text-xs">
+                <strong>{a.title}</strong>
+                <br />Severity: {a.severity?.replace('_', ' ')}
+                <br />Type: {a.type}
+                {a.affected_municipality && <><br />Area: {a.affected_municipality}</>}
+              </div>
+            </Popup>
+          </CircleMarker>
+        ))}
+
+        {incidentMarkers.map((i) => (
+          <Marker key={`incident-${i.id}`} position={[i.latitude, i.longitude]}>
+            <Popup>
+              <div className="text-xs">
+                <strong>{i.title}</strong>
+                <br />Type: {i.type?.replace(/_/g, ' ')}
+                <br />Status: {i.status}
+                {i.municipality && <><br />{i.municipality}</>}
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+
+        {densityMarkers.map((m) => (
+          <CircleMarker
+            key={`density-${m.id}`}
+            center={[m.latitude, m.longitude]}
+            radius={2}
+            fillColor="#ff4d4f"
+            fillOpacity={0.4}
+            stroke={false}
+          >
+            <Popup>
+              <div className="text-[10px]">
+                <strong>Estimated Exposure Density</strong>
+                <br />Source: PSA 2020 Census
+                <br />Hazard: {m.hazardType?.replace('_', ' ')}
+                <br />Note: Representation based on agency risk ratings.
+              </div>
+            </Popup>
+          </CircleMarker>
+        ))}
       </MapContainer>
     </div>
   );
