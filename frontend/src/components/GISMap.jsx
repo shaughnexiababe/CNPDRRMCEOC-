@@ -2,9 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, LayersControl, CircleMarker, useMap, GeoJSON } from 'react-leaflet';
 import * as esri from 'esri-leaflet';
 import { MAP_CENTER, MAP_ZOOM } from '@/lib/constants';
-import { GEORISK_LAYERS_CONFIG } from '@/lib/spatial'; // I'll add them to spatial or import from georisk
-import 'leaflet/dist/leaflet.css';
-import { fetchGeoJSON } from '@/lib/spatial';
+import { fetchGeoJSON, GEORISK_LAYERS_CONFIG } from '@/lib/spatial';
 import { Badge } from '@/components/ui/badge';
 
 function FlyToLocation({ coords, zoom = 13 }) {
