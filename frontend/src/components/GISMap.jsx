@@ -36,10 +36,12 @@ function RemoteGeoJSON({ url, color, layerName, isGeoRisk = false }) {
     if (!url) return;
 
     setLoading(true);
-    // Append f=geojson for ArcGIS Servers if not present
+    // Append f=geojson and query parameters for ArcGIS Servers
     let finalUrl = url;
-    if (isGeoRisk && !url.includes('f=geojson')) {
-        finalUrl = url.includes('?') ? `${url}&f=geojson` : `${url}/query?where=1%3D1&outFields=*&f=geojson`;
+    if (isGeoRisk) {
+        // Construct a query URL that requests GeoJSON for the current extent
+        const baseUrl = url.endsWith('/') ? url : `${url}/`;
+        finalUrl = `${baseUrl}query?where=1%3D1&outFields=*&returnGeometry=true&f=geojson`;
     }
 
     fetchGeoJSON(finalUrl)
