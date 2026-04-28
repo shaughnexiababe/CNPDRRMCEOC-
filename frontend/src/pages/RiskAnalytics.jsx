@@ -9,7 +9,7 @@ import { Activity, BarChart3, Loader2, ShieldAlert, CheckCircle2, Users, Map as 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, PieChart, Pie, Cell } from 'recharts';
 import { MUNICIPALITIES, SEVERITY_LEVELS, MUNICIPALITY_DATA, MUNICIPALITY_COORDINATES, MUNICIPALITY_BBOXES, HAZARD_TYPES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
-import { fetchGeoJSON, getSpatialExposure, estimateReliefRequirements, generateHazardDensityPoints } from '@/lib/spatial';
+import { fetchGeoJSON, getSpatialExposure, estimateReliefRequirements, generateHazardDensityPoints, GEORISK_LAYERS_CONFIG } from '@/lib/spatial';
 import * as turf from '@turf/turf';
 
 export default function RiskAnalytics() {
@@ -34,11 +34,14 @@ export default function RiskAnalytics() {
     setAnalyzing(true);
 
     try {
-      // 1. Identify active hazard layers from agencies
-      const activeHazardLayers = layers.filter(l =>
+      // 1. Identify active hazard layers (System + User Uploaded)
+      const systemLayers = GEORISK_LAYERS_CONFIG.map(l => ({ ...l, is_active: true }));
+      const activeUserLayers = layers.filter(l =>
         l.is_active !== false &&
         ['flood', 'landslide', 'storm_surge', 'fault_line', 'liquefaction'].includes(l.type)
       );
+
+      const activeHazardLayers = [...systemLayers, ...activeUserLayers];
 
       if (activeHazardLayers.length === 0) {
         alert("No active hazard layers found. Please upload and activate layers (Flood, Landslide, etc.) in the Data Layers page first.");
