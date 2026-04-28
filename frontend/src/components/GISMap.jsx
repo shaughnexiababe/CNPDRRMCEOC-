@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, LayersControl, CircleMarker, useMap, GeoJSON } from 'react-leaflet';
 import { MAP_CENTER, MAP_ZOOM } from '@/lib/constants';
 import 'leaflet/dist/leaflet.css';
-import axios from 'axios';
+import { fetchGeoJSON } from '@/lib/spatial';
 import { Badge } from '@/components/ui/badge';
 
 function FlyToLocation({ coords, zoom = 13 }) {
@@ -18,14 +18,7 @@ function RemoteGeoJSON({ url, color, layerName }) {
 
   useEffect(() => {
     if (url) {
-      if (url.startsWith('data:application/json;base64,')) {
-        try {
-          const jsonString = atob(url.split(',')[1]);
-          setData(JSON.parse(jsonString));
-        } catch (e) {
-          console.error("Failed to parse base64 GeoJSON", e);
-        }
-      } else if (url.startsWith('https://mock-storage.com')) {
+      if (url.startsWith('https://mock-storage.com')) {
          setData({
            type: "FeatureCollection",
            features: [
@@ -37,10 +30,13 @@ function RemoteGeoJSON({ url, color, layerName }) {
            ]
          });
       } else {
-        axios.get(url).then(res => setData(res.data)).catch(console.error);
+        // Use the centralized fetchGeoJSON utility for consistent encoding and retries
+        fetchGeoJSON(url)
+          .then(res => setData(res))
+          .catch(err => console.error(`Map Layer Load Error (${layerName}):`, err));
       }
     }
-  }, [url]);
+  }, [url, layerName]);
 
   if (!data) return null;
 
@@ -78,7 +74,13 @@ function RemoteGeoJSON({ url, color, layerName }) {
     };
   };
 
-  return <GeoJSON data={data} style={getStyle} onEachFeature={onEachFeature} />;
+  return (
+    <React.Fragment>
+      {data && data.features && data.features.length > 0 && (
+        <GeoJSON key={url} data={data} style={getStyle} onEachFeature={onEachFeature} />
+      )}
+    </React.Fragment>
+  );
 }
 
 import L from 'leaflet';
@@ -88,8 +90,14 @@ import {
   Shield, Building2, Landmark, ArrowLeftRight
 } from 'lucide-react';
 
+// Cache for custom icons to prevent re-rendering them on every map update
+const iconCache = new Map();
+
 // Create a custom icon generator using Lucide icons
-const createFacilityIcon = (type, isAtRisk) => {
+const getFacilityIcon = (type, isAtRisk) => {
+  const cacheKey = `${type}-${isAtRisk}`;
+  if (iconCache.has(cacheKey)) return iconCache.get(cacheKey);
+
   const iconMap = {
     hospital: Hospital,
     school: GraduationCap,
@@ -121,12 +129,15 @@ const createFacilityIcon = (type, isAtRisk) => {
     </div>
   );
 
-  return L.divIcon({
+  const icon = L.divIcon({
     html: iconHtml,
     className: 'custom-facility-icon',
     iconSize: [isAtRisk ? 36 : 30, isAtRisk ? 36 : 30],
     iconAnchor: [isAtRisk ? 18 : 15, isAtRisk ? 18 : 15],
   });
+
+  iconCache.set(cacheKey, icon);
+  return icon;
 };
 
 const facilityColors = {
@@ -153,6 +164,7 @@ export default function GISMap({
   alerts = [],
   incidents = [],
   layers = [],
+  extraMarkers = [],
   highlightedIds = [],
   className,
   height = '500px',
@@ -162,6 +174,7 @@ export default function GISMap({
   const facilityMarkers = facilities.filter(f => f.latitude && f.longitude);
   const alertMarkers = alerts.filter(a => a.latitude && a.longitude && (a.status === 'active' || a.status === 'monitoring'));
   const incidentMarkers = incidents.filter(i => i.latitude && i.longitude);
+  const densityMarkers = extraMarkers.filter(m => m.type === 'population_density');
   const activeLayers = layers.filter(l => l.is_active !== false && l.file_url);
 
   return (
@@ -200,23 +213,62 @@ export default function GISMap({
             </LayersControl.Overlay>
           ))}
 
+          {densityMarkers.length > 0 && (
+            <LayersControl.Overlay checked name="Estimated Population Density">
+              <React.Fragment>
+                {densityMarkers.map((m) => (
+                  <CircleMarker
+                    key={m.id}
+                    center={[m.latitude, m.longitude]}
+                    radius={2}
+                    fillColor="#ff4d4f"
+                    fillOpacity={0.4}
+                    stroke={false}
+                  >
+                    <Popup>
+                      <div className="text-[10px]">
+                        <strong>Estimated Exposure Density</strong>
+                        <br />Source: PSA 2020 Census
+                        <br />Hazard: {m.hazardType?.replace('_', ' ')}
+                        <br />Note: Representation based on agency risk ratings.
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                ))}
+              </React.Fragment>
+            </LayersControl.Overlay>
+          )}
+
           <LayersControl.Overlay checked name="Facilities">
             <React.Fragment>
               {facilityMarkers.map((f) => {
                 const isHighlighted = highlightedIds.includes(f.id);
                 return (
                   <Marker
-                    key={f.id}
+                    key={`${f.id}-${isHighlighted}`}
                     position={[f.latitude, f.longitude]}
-                    icon={createFacilityIcon(f.type, isHighlighted)}
+                    icon={getFacilityIcon(f.type, isHighlighted)}
                   >
                     <Popup>
-                      <div className="text-xs">
-                        {isHighlighted && <Badge variant="destructive" className="mb-2 text-[8px] h-4">AT RISK</Badge>}
-                        <br /><strong>{f.name}</strong>
-                        <br />Type: {f.type?.replace(/_/g, ' ')}
-                        <br />Municipality: {f.municipality}
-                        {f.capacity && <><br />Capacity: {f.capacity}</>}
+                      <div className="text-xs space-y-1">
+                        {isHighlighted && <Badge variant="destructive" className="mb-1 text-[8px] h-4">AT RISK</Badge>}
+                        <div className="font-bold border-b pb-1">{f.name}</div>
+                        <div><strong>Type:</strong> {f.type?.replace(/_/g, ' ')}</div>
+                        <div><strong>Muni:</strong> {f.municipality}</div>
+                        {f.exposures && Object.entries(f.exposures).some(([_, v]) => v !== 'none') && (
+                          <div className="pt-1 border-t mt-1">
+                            <strong className="text-[10px] text-destructive">Agency Hazard Tagging:</strong>
+                            {Object.entries(f.exposures)
+                              .filter(([_, v]) => v !== 'none')
+                              .map(([k, v]) => (
+                                <div key={k} className="flex justify-between items-center gap-2 mt-0.5">
+                                  <span className="capitalize text-[9px]">{k.replace('_exposure', '').replace('_', ' ')}:</span>
+                                  <Badge variant="outline" className="text-[8px] h-3.5 px-1 bg-red-50">{v}</Badge>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                        {f.capacity && <div><strong>Capacity:</strong> {f.capacity}</div>}
                       </div>
                     </Popup>
                   </Marker>

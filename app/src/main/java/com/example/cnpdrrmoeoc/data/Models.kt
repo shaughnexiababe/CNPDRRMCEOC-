@@ -35,3 +35,24 @@ data class IncidentReport(
     val priority: String = "medium",
     val createdDate: Long = System.currentTimeMillis()
 )
+
+data class User(
+    val id: String,
+    val name: String,
+    val email: String,
+    val role: UserRole
+)
+
+enum class UserRole {
+    CITIZEN,
+    EOC_PERSONNEL,
+    ADMIN
+}
+
+data class AgencyAlert(
+    val title: String,
+    val description: String,
+    val source: String,
+    val url: String?,
+    val timestamp: Long = System.currentTimeMillis()
+)

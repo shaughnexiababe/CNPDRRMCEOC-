@@ -11,7 +11,8 @@ export default function AgencyDataPanel() {
       time: '15 mins ago',
       type: 'Weather',
       status: 'active',
-      icon: Cloud
+      icon: Cloud,
+      url: 'https://www.pagasa.dost.gov.ph/weather'
     },
     {
       agency: 'DOST-PHIVOLCS',
@@ -19,7 +20,8 @@ export default function AgencyDataPanel() {
       time: '1 hour ago',
       type: 'Seismic',
       status: 'monitoring',
-      icon: Zap
+      icon: Zap,
+      url: 'https://www.phivolcs.dost.gov.ph/index.php/earthquake/earthquake-information3'
     },
     {
       agency: 'DENR-MGB',
@@ -27,7 +29,8 @@ export default function AgencyDataPanel() {
       time: 'Daily Sync',
       type: 'GIS',
       status: 'synced',
-      icon: Map
+      icon: Map,
+      url: 'https://www.mgb.gov.ph/'
     },
     {
       agency: 'NAMRIA',
@@ -35,7 +38,8 @@ export default function AgencyDataPanel() {
       time: 'Static',
       type: 'Base',
       status: 'synced',
-      icon: Globe
+      icon: Globe,
+      url: 'https://www.namria.gov.ph/'
     }
   ];
 
@@ -48,21 +52,29 @@ export default function AgencyDataPanel() {
       </CardHeader>
       <CardContent className="space-y-3">
         {feeds.map((feed, i) => (
-          <div key={i} className="flex items-center justify-between p-2 rounded-md border bg-muted/20 text-xs">
+          <a
+            key={i}
+            href={feed.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between p-2 rounded-md border bg-muted/20 hover:bg-muted/40 transition-colors text-xs cursor-pointer group"
+          >
             <div className="flex items-center gap-3">
-              <div className="p-1.5 rounded-full bg-primary/10">
+              <div className="p-1.5 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors">
                 <feed.icon className="w-3.5 h-3.5 text-primary" />
               </div>
               <div>
-                <p className="font-bold">{feed.agency}</p>
+                <p className="font-bold flex items-center gap-1">
+                  {feed.agency}
+                </p>
                 <p className="text-muted-foreground truncate max-w-[150px]">{feed.title}</p>
               </div>
             </div>
             <div className="text-right">
               <Badge variant="outline" className="text-[9px] h-4">{feed.status}</Badge>
-              <p className="text-[9px] text-muted-foreground mt-0.5">{feed.time}</p>
+              <p className={[9, 'px'].join('') + " text-muted-foreground mt-0.5"}>{feed.time}</p>
             </div>
-          </div>
+          </a>
         ))}
       </CardContent>
     </Card>

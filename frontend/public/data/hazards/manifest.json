@@ -1,0 +1,9 @@
+{
+  "province": "CAMARINES NORTE",
+  "layers": [
+    { "type": "flood", "file": "/data/hazards/flood_camnorte.json", "status": "placeholder" },
+    { "type": "landslide", "file": "/data/hazards/landslide_camnorte.json", "status": "placeholder" },
+    { "type": "storm_surge", "file": "/data/hazards/storm_surge_camnorte.json", "status": "placeholder" },
+    { "type": "active_faults", "file": "/data/hazards/active_faults_camnorte.json", "status": "placeholder" }
+  ]
+}

@@ -1,0 +1,389 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "node/2498643846",
+      "properties": {
+        "addr:city": "Daet",
+        "addr:housename": "Daet Elevated Town Plaza",
+        "addr:postcode": "4600",
+        "addr:street": "Justo Lukban Street",
+        "amenity": "police",
+        "name": "Daet Police",
+        "type": "police"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [122.9549169, 14.1161145]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/2668167955",
+      "properties": {
+        "addr:city": "Daet",
+        "addr:postcode": "4600",
+        "addr:street": "President Corazon Aquino Boulevard",
+        "amenity": "police",
+        "name": "Police Community Precinct 2",
+        "type": "police"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [122.9853594, 14.1312422]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/2853044485",
+      "properties": {
+        "amenity": "clinic",
+        "name": "Barangay Paracale Healthcare Unit"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [122.7909088, 14.2790116]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/3861675506",
+      "properties": {
+        "amenity": "fire_station",
+        "name": "Jose Panganiban Fire Station"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [122.6938955, 14.2856654]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/4394363092",
+      "properties": {
+        "addr:street": "San Vicente Road",
+        "amenity": "police",
+        "name": "Camarines Norte Provincial Public Safety Company"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [122.9147757, 14.1063987]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/4499430715",
+      "properties": {
+        "amenity": "police",
+        "name": "San Vicente Police Station",
+        "operator": "Philippine National Police"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [122.8713531, 14.1024638]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/4721463093",
+      "properties": {
+        "addr:housenumber": "2818",
+        "addr:postcode": "4600",
+        "addr:street": "Diego Liñan Street",
+        "amenity": "clinic",
+        "healthcare": "clinic",
+        "name": "Nablo's Clinic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [122.9581898, 14.1187949]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/4895435922",
+      "properties": {
+        "addr:housenumber": "2569",
+        "addr:postcode": "4600",
+        "addr:street": "J. Pimentel Street",
+        "amenity": "school",
+        "name": "MCE Academy",
+        "ref": "433015"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [122.9550469, 14.1180085]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/5496342123",
+      "properties": {
+        "amenity": "clinic",
+        "name": "Borabod Barangay Health Station"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [122.9695107, 14.1306651]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/5498003825",
+      "properties": {
+        "amenity": "police",
+        "name": "Talisay Police Station"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [122.9233844, 14.1366700]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/5498007528",
+      "properties": {
+        "amenity": "police",
+        "name": "Provincial Highway Patrol Team"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [122.9368472, 14.1272344]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/5498007530",
+      "properties": {
+        "amenity": "clinic",
+        "healthcare": "clinic",
+        "name": "Talisay Municipal Health Office"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [122.9247689, 14.1351228]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/5547545200",
+      "properties": {
+        "amenity": "police",
+        "name": "Tanod Outpost"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [122.6960535, 14.2596273]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/5927784186",
+      "properties": {
+        "addr:place": "Purok 3",
+        "addr:postcode": "4610",
+        "addr:village": "Matacong",
+        "amenity": "fire_station",
+        "name": "San Lorenzo Ruiz Fire Station"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [122.8621949, 14.0351339]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/8089940831",
+      "properties": {
+        "addr:city": "Labo",
+        "addr:housenumber": "P-1",
+        "addr:postcode": "4604",
+        "addr:street": "Bagong Silang - Capalonga Road",
+        "amenity": "school",
+        "name": "Manila Bicol South Road Academy"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [122.6273071, 14.1758001]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/8096486402",
+      "properties": {
+        "amenity": "school",
+        "name": "Basud Parochial School",
+        "operator": "Diocese of Daet"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [122.9637483, 14.0638088]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/8096519807",
+      "properties": {
+        "addr:city": "Basud",
+        "addr:street": "Del Rosario Street",
+        "amenity": "school",
+        "name": "Christian Foundational Learning Center"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [122.9651073, 14.0636688]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/8922085969",
+      "properties": {
+        "amenity": "police",
+        "name": "PNP Community Precinct"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [122.9986767, 14.1185963]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/9295086205",
+      "properties": {
+        "addr:province": "Camarines Norte",
+        "addr:town": "Jose Panganiban",
+        "addr:village": "San Jose",
+        "amenity": "school",
+        "name": "San Jose Elementary School",
+        "ref": "112167"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [122.6176611, 14.2798804]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/10212070819",
+      "properties": {
+        "amenity": "hospital",
+        "name": "Rosary of Virgin Mary Hospital"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [122.394677, 14.1855359]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/10212070917",
+      "properties": {
+        "amenity": "hospital",
+        "name": "Barrios-Businos Medical Clinic and Hospital"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [122.6974758, 14.2813686]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/12995361600",
+      "properties": {
+        "amenity": "police",
+        "name": "Camarines Norte Maritime Police Station"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [123.0123414, 14.1089418]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "way/240577364",
+      "properties": {
+        "addr:province": "Camarines Norte",
+        "addr:town": "Daet",
+        "amenity": "school",
+        "name": "Pandan Elementary School",
+        "ref": "112138"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[122.9498693, 14.1205413], [122.9491137, 14.1210062], [122.9496549, 14.1217702], [122.9503865, 14.1213091], [122.9498693, 14.1205413]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "way/240633232",
+      "properties": {
+        "addr:province": "Camarines Norte",
+        "addr:town": "Daet",
+        "amenity": "school",
+        "name": "Daet Elementary School",
+        "ref": "112134"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[122.957168, 14.1155684], [122.958288, 14.1154758], [122.958347, 14.1162406], [122.959679, 14.1171715], [122.9573305, 14.1173331], [122.957168, 14.1155684]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "way/240633233",
+      "properties": {
+        "addr:province": "Camarines Norte",
+        "addr:town": "Daet",
+        "amenity": "school",
+        "name": "Cobangbang Elementary School",
+        "ref": "112142"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[122.9604824, 14.1054719], [122.9599784, 14.1051189], [122.9596041, 14.1057016], [122.9595865, 14.1058976], [122.9601738, 14.1061065], [122.9604824, 14.1054719]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "way/348921894",
+      "properties": {
+        "addr:province": "Camarines Norte",
+        "addr:town": "Jose Panganiban",
+        "amenity": "school",
+        "name": "Jose Panganiban National High School",
+        "ref": "301898"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[122.6918958, 14.2800648], [122.6907744, 14.2789308], [122.6920967, 14.2777659], [122.6933523, 14.2788755], [122.6918958, 14.2800648]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "relation/11330518",
+      "properties": {
+        "name": "Poblacion Norte",
+        "ref": "0501608022",
+        "type": "boundary"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[122.7916553,14.2826136],[122.791112,14.2823388],[122.7910445,14.282315],[122.7909923,14.2823606],[122.7909185,14.2824009],[122.7907482,14.2824607],[122.7903324,14.2826231],[122.7896632,14.2828896],[122.7894098,14.283],[122.789214,14.2830975],[122.7890262,14.2832353],[122.7887821,14.2834497],[122.7886829,14.2835251],[122.7882162,14.2838682],[122.7875671,14.2844608],[122.7871379,14.2849625],[122.7868295,14.2846844],[122.7876127,14.2835875],[122.7877977,14.2836109],[122.7879614,14.2833925],[122.7876636,14.2832496],[122.7873096,14.2827297],[122.7872989,14.2825686],[122.7870575,14.2822047],[122.7872264,14.2820929],[122.7869207,14.2817498],[122.7865022,14.2811389],[122.7860432,14.2801875],[122.7863378,14.2800819],[122.7871694,14.2797756],[122.787294,14.2797244],[122.7874774,14.2796606],[122.7876859,14.279579],[122.7884545,14.2792825],[122.7891903,14.2789556],[122.7894277,14.2788292],[122.7896504,14.2792022],[122.7897692,14.2793246],[122.7899174,14.2796653],[122.789948,14.2798638],[122.7899355,14.2800498],[122.7900535,14.2803799],[122.7901527,14.2805151],[122.7903776,14.2807043],[122.7907658,14.2811823],[122.7910792,14.281476],[122.791341,14.2816348],[122.7915215,14.2817762],[122.7916122,14.2819142],[122.7916939,14.2820807],[122.7917455,14.2822374],[122.7917405,14.2823414],[122.7917211,14.2824705],[122.7916553,14.2826136]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "relation/11330629",
+      "properties": {
+        "name": "Macolabo Island",
+        "ref": "0501608013",
+        "type": "boundary"
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [[[[122.82938,14.4844448],[122.8293774,14.4843876],[122.8293425,14.4843422],[122.8293304,14.4842993],[122.8293438,14.4842552],[122.8294042,14.484202],[122.8294551,14.4842046],[122.8294981,14.4841812],[122.8295718,14.4841552],[122.8295986,14.4841409],[122.8296214,14.4840669],[122.8296402,14.484041],[122.8297006,14.4839929],[122.8297448,14.4839656],[122.8297368,14.4839371],[122.829722,14.483915],[122.8297381,14.4838734],[122.829769,14.4838358],[122.8297877,14.4839046],[122.8302155,14.483989],[122.8302236,14.4841215],[122.8301659,14.4842396],[122.8300332,14.484385],[122.8299969,14.4843967],[122.8299728,14.4844591],[122.8299393,14.4845149],[122.829828,14.4846045],[122.829769,14.4846071],[122.8293881,14.4844643],[122.82938,14.4844448]]]]
+      }
+    }
+  ]
+}

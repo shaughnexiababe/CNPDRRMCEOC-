@@ -30,10 +30,11 @@ export const createClient = ({ appId, token, appBaseUrl }) => {
         list: async (order, limit) => {
           console.log(`Mock: Listing ${entityName} from cnpdrrmceoc backend`);
           let items = getCache(entityName);
+
           if (items.length === 0) {
             if (entityName === 'HazardAlert') items = [
-              { id: '1', title: 'PAGASA: Tropical Cyclone Wind Signal #1', severity: 'moderate', type: 'typhoon', status: 'active', issued_at: new Date().toISOString(), latitude: 14.1122, longitude: 122.9553 },
-              { id: '2', title: 'PHIVOLCS: Magnitude 4.2 Earthquake - Vinzons', severity: 'high', type: 'earthquake', status: 'monitoring', issued_at: new Date().toISOString(), latitude: 14.1789, longitude: 122.9123 }
+              { id: '1', title: 'PAGASA: Tropical Cyclone Wind Signal #1', severity: 'moderate', type: 'typhoon', status: 'active', issued_at: new Date().toISOString(), latitude: 14.1122, longitude: 122.9553, source_url: 'https://www.pagasa.dost.gov.ph/tropical-cyclone/severe-weather-bulletin' },
+              { id: '2', title: 'PHIVOLCS: Magnitude 4.2 Earthquake - Vinzons', severity: 'high', type: 'earthquake', status: 'monitoring', issued_at: new Date().toISOString(), latitude: 14.1789, longitude: 122.9123, source_url: 'https://www.phivolcs.dost.gov.ph/index.php/earthquake/earthquake-information3' }
             ];
 
             if (entityName === 'Facility') items = [
@@ -42,9 +43,11 @@ export const createClient = ({ appId, token, appBaseUrl }) => {
             ];
 
             if (entityName === 'HazardLayer') items = [
-              { id: 'l1', name: 'Flood Susceptibility (MGB)', type: 'flood', format: 'geojson', is_active: true, file_url: 'https://raw.githubusercontent.com/gynvael/geojson-repository/master/camarines_norte_sample.geojson' },
-              { id: 'l2', name: 'Bagasbas High Risk Area', type: 'flood', format: 'geojson', is_active: true, file_url: 'data:application/json;base64,eyJ0eXBlIjogIkZlYXR1cmVDb2xsZWN0aW9uIiwgImZlYXR1cmVzIjogW3sidHlwZSI6ICJGZWF0dXJlIiwgInByb3BlcnRpZXMiOiB7Im5hbWUiOiAiSGlnaCBSaXNrIFB1cm9rIDEiLCAiYmFyYW5nYXkiOiAiQmFnYXNiYXMiLCAic3VzY2VwdGliaWxpdHkiOiAidmVyeV9oaWdoIn0sICJnZW9tZXRyeSI6IHsidHlwZSI6ICJQb2x5Z29uIiwgImNvb3JkaW5hdGVzIjogW1tbMTIyLjk4LCAxNC4xMl0sIFsxMjIuOTksIDE0LjEyXSwgWzEyMi45OSwgMTQuMTNdLCBbMTIyLjk4LCAxNC4xM10sIFsxMjIuOTgsIDE0LjEyXV1dfX1dfQ==' },
-              { id: 'l3', name: 'Provincial Infrastructure (OSM)', type: 'infrastructure', format: 'geojson', is_active: true, source: 'OpenStreetMap', file_url: 'https://raw.githubusercontent.com/shaughnexiababe/CNPDRRMCEOC-/main/infrastructure_base.geojson' }
+              { id: 'l1', name: 'Flood Hazard (Local Data)', type: 'flood', format: 'geojson', is_active: true, file_url: '/data/hazards/flood_camnorte.json' },
+              { id: 'l2', name: 'Landslide Hazard (Local Data)', type: 'landslide', format: 'geojson', is_active: true, file_url: '/data/hazards/landslide_camnorte.json' },
+              { id: 'l3', name: 'Storm Surge (Local Data)', type: 'storm_surge', format: 'geojson', is_active: true, file_url: '/data/hazards/storm_surge_camnorte.json' },
+              { id: 'l4', name: 'Active Faults (Local Data)', type: 'fault_line', format: 'geojson', is_active: true, file_url: '/data/hazards/active_faults_camnorte.json' },
+              { id: 'l5', name: 'Bagasbas High Risk Area (Overlay)', type: 'flood', format: 'geojson', is_active: true, file_url: 'data:application/json;base64,eyJ0eXBlIjogIkZlYXR1cmVDb2xsZWN0aW9uIiwgImZlYXR1cmVzIjogW3sidHlwZSI6ICJGZWF0dXJlIiwgInByb3BlcnRpZXMiOiB7Im5hbWUiOiAiSGlnaCBSaXNrIFB1cm9rIDEiLCAiYmFyYW5nYXkiOiAiQmFnYXNiYXMiLCAic3VzY2VwdGliaWxpdHkiOiAidmVyeV9oaWdoIn0sICJnZW9tZXRyeSI6IHsidHlwZSI6ICJQb2x5Z29uIiwgImNvb3JkaW5hdGVzIjogW1tbMTIyLjk4LCAxNC4xMl0sIFsxMjIuOTksIDE0LjEyXSwgWzEyMi45OSwgMTQuMTNdLCBbMTIyLjk4LCAxNC4xM10sIFsxMjIuOTgsIDE0LjEyXV1dfX1dfQ==' }
             ];
 
             if (entityName === 'User') items = [
@@ -53,6 +56,23 @@ export const createClient = ({ appId, token, appBaseUrl }) => {
 
             saveCache(entityName, items);
           }
+
+          // Simple ordering logic
+          if (order) {
+            const field = order.startsWith('-') ? order.substring(1) : order;
+            const dir = order.startsWith('-') ? -1 : 1;
+            items = [...items].sort((a, b) => {
+              if (a[field] < b[field]) return -1 * dir;
+              if (a[field] > b[field]) return 1 * dir;
+              return 0;
+            });
+          }
+
+          // Apply limit
+          if (limit) {
+            items = items.slice(0, limit);
+          }
+
           return items;
         },
         create: async (data) => {
@@ -62,6 +82,17 @@ export const createClient = ({ appId, token, appBaseUrl }) => {
            items.unshift(item);
            saveCache(entityName, items);
            return item;
+        },
+        createMany: async (dataArray) => {
+           const items = getCache(entityName);
+           const newItems = dataArray.map(data => ({
+             id: Math.random().toString(36).substr(2, 9),
+             ...data,
+             created_date: new Date().toISOString()
+           }));
+           const updated = [...newItems, ...items];
+           saveCache(entityName, updated);
+           return newItems;
         },
         update: async (id, data) => {
            const items = getCache(entityName);

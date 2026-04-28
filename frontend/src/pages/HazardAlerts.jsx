@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, AlertTriangle, Clock, MapPin } from 'lucide-react';
+import { Plus, AlertTriangle, Clock, MapPin, ExternalLink } from 'lucide-react';
 import { MUNICIPALITIES, HAZARD_TYPES, SEVERITY_LEVELS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import moment from 'moment';
@@ -34,7 +34,7 @@ export default function HazardAlerts() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [form, setForm] = useState({
     title: '', type: 'flood', severity: 'moderate', status: 'active',
-    description: '', affected_municipality: '', source: '',
+    description: '', affected_municipality: '', source: '', source_url: '',
     estimated_affected_households: '', latitude: '', longitude: '',
     issued_at: new Date().toISOString().slice(0, 16),
   });
@@ -135,8 +135,8 @@ export default function HazardAlerts() {
                     <Input value={form.source} onChange={e => setForm({ ...form, source: e.target.value })} placeholder="e.g. PAGASA" />
                   </div>
                   <div>
-                    <Label className="text-xs">Est. Households</Label>
-                    <Input type="number" value={form.estimated_affected_households} onChange={e => setForm({ ...form, estimated_affected_households: e.target.value })} />
+                    <Label className="text-xs">Source URL</Label>
+                    <Input value={form.source_url} onChange={e => setForm({ ...form, source_url: e.target.value })} placeholder="https://..." />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -148,6 +148,10 @@ export default function HazardAlerts() {
                     <Label className="text-xs">Longitude</Label>
                     <Input type="number" step="any" value={form.longitude} onChange={e => setForm({ ...form, longitude: e.target.value })} />
                   </div>
+                </div>
+                <div>
+                  <Label className="text-xs">Est. Affected Households</Label>
+                  <Input type="number" value={form.estimated_affected_households} onChange={e => setForm({ ...form, estimated_affected_households: e.target.value })} />
                 </div>
                 <Button type="submit" className="w-full" disabled={createMutation.isPending}>
                   {createMutation.isPending ? 'Creating...' : 'Create Alert'}
@@ -178,7 +182,17 @@ export default function HazardAlerts() {
                     <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
                       <span className="capitalize">{alert.type}</span>
                       {alert.affected_municipality && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{alert.affected_municipality}</span>}
-                      {alert.source && <span>Source: {alert.source}</span>}
+                      {alert.source && (
+                        <div className="flex items-center gap-1">
+                          <span>Source: {alert.source}</span>
+                          {alert.source_url && (
+                            <a href={alert.source_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-0.5">
+                              <ExternalLink className="w-2.5 h-2.5" />
+                              View
+                            </a>
+                          )}
+                        </div>
+                      )}
                       {alert.issued_at && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{moment(alert.issued_at).format('MMM D, HH:mm')}</span>}
                     </div>
                   </div>

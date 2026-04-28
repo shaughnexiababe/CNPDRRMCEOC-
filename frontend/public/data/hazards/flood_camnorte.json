@@ -1,0 +1,11 @@
+{
+  "type": "FeatureCollection",
+  "name": "Placeholder Flood Data",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "Bagasbas Beach High Risk", "susceptibility": "very_high", "municipality": "Daet" },
+      "geometry": { "type": "Polygon", "coordinates": [[[122.98, 14.12], [123.00, 14.12], [123.00, 14.14], [122.98, 14.14], [122.98, 14.12]]] }
+    }
+  ]
+}

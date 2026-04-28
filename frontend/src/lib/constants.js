@@ -81,6 +81,21 @@ export const MUNICIPALITY_DATA = {
   }
 };
 
+export const MUNICIPALITY_BBOXES = {
+  "Basud": [122.9, 13.9, 123.1, 14.1],
+  "Capalonga": [122.3, 14.1, 122.6, 14.4],
+  "Daet": [122.9, 14.0, 123.0, 14.2],
+  "Jose Panganiban": [122.6, 14.2, 122.8, 14.4],
+  "Labo": [122.6, 14.0, 122.9, 14.2],
+  "Mercedes": [123.0, 13.9, 123.2, 14.1],
+  "Paracale": [122.7, 14.2, 122.9, 14.4],
+  "San Lorenzo Ruiz": [122.8, 13.9, 123.0, 14.1],
+  "San Vicente": [122.9, 14.1, 123.0, 14.2],
+  "Santa Elena": [122.3, 14.0, 122.6, 14.2],
+  "Talisay": [122.9, 14.1, 123.0, 14.2],
+  "Vinzons": [122.8, 14.1, 123.0, 14.3],
+};
+
 export const HAZARD_TYPES = [
   { value: "flood", label: "Flood", color: "#3B82F6" },
   { value: "landslide", label: "Landslide", color: "#A855F7" },

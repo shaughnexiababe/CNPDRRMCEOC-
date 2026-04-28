@@ -32,6 +32,13 @@ export const createClient = ({ appId, token, appBaseUrl }) => {
            const item = { id, ...data, created_date: new Date().toISOString() };
            return item;
         },
+        createMany: async (dataArray) => {
+           return dataArray.map(data => ({
+             id: Math.random().toString(36).substr(2, 9),
+             ...data,
+             created_date: new Date().toISOString()
+           }));
+        },
         update: async (id, data) => ({ id, ...data }),
         delete: async (id) => ({ id }),
       };

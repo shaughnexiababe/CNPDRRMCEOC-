@@ -1,10 +1,12 @@
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useMemo, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cnpdrrmceoc } from '@/lib/cnpdrrmceoc';
 import {
   AlertTriangle, Users, Building2, MapPin,
   Shield, Activity, TrendingUp
 } from 'lucide-react';
+import { useToast } from "@/components/ui/use-toast";
+import { subscribeToRealtimeIncidents } from '@/lib/firebase';
 import StatCard from '@/components/StatCard';
 import AlertsPanel from '@/components/AlertsPanel';
 import MunicipalityBreakdown from '@/components/MunicipalityBreakdown';
@@ -15,6 +17,9 @@ import AssessmentsPanel from '@/components/AssessmentsPanel';
 import AgencyDataPanel from '@/components/AgencyDataPanel';
 
 export default function StrategicDashboard() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
   const { data: alerts = [] } = useQuery({
     queryKey: ['alerts'],
     queryFn: () => cnpdrrmceoc.entities.HazardAlert.list('-created_date', 50),
@@ -35,8 +40,26 @@ export default function StrategicDashboard() {
     queryFn: () => cnpdrrmceoc.entities.HazardLayer.list('-created_date', 100),
   });
 
-  const activeAlerts = alerts.filter(a => a.status === 'active' || a.status === 'monitoring');
-  const activeIncidents = incidents.filter(i => i.status !== 'resolved');
+  // Setup real-time Firestore listener for new incidents
+  useEffect(() => {
+    const unsubscribe = subscribeToRealtimeIncidents((newIncident) => {
+      // Show pop-up notification
+      toast({
+        title: "NEW INCIDENT REPORTED",
+        description: `${newIncident.type.toUpperCase()}: ${newIncident.title} in ${newIncident.municipality}`,
+        variant: "destructive",
+        duration: 10000, // Show for 10 seconds
+      });
+
+      // Invalidate tanstack query to refresh the list and map
+      queryClient.invalidateQueries({ queryKey: ['incidents'] });
+    });
+
+    return () => unsubscribe();
+  }, [toast, queryClient]);
+
+  const activeAlerts = useMemo(() => alerts.filter(a => a.status === 'active' || a.status === 'monitoring'), [alerts]);
+  const activeIncidents = useMemo(() => incidents.filter(i => i.status !== 'resolved'), [incidents]);
 
   return (
     <div className="space-y-6">

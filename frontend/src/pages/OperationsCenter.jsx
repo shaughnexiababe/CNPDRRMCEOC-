@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Radio, AlertTriangle, Clock, MapPin, Users, CheckCircle2 } from 'lucide-react';
+import { Radio, AlertTriangle, Clock, MapPin, Users, CheckCircle2, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import moment from 'moment';
 import GISMap from '@/components/GISMap';
@@ -123,7 +123,8 @@ export default function OperationsCenter() {
       {/* Map + Live Feed */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
-          <GISMap facilities={facilities} alerts={alerts} incidents={incidents} layers={layers} height="380px" />
+          {/* Operations map only shows active markers to maintain focus on current crisis */}
+          <GISMap alerts={activeAlerts} incidents={activeIncidents} height="380px" />
         </div>
 
         {/* Live Incident Feed */}
@@ -196,8 +197,16 @@ export default function OperationsCenter() {
                       'bg-red-500': alert.severity === 'very_high',
                     })} />
                     <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{alert.title}</p>
-                      <p className="text-[10px] text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate">{alert.title}</p>
+                        {alert.source_url && (
+                          <a href={alert.source_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-0.5 text-[10px]">
+                            <ExternalLink className="w-2.5 h-2.5" />
+                            Agency Site
+                          </a>
+                        )}
+                      </div>
+                      <p className={[10, 'px'].join('') + " text-muted-foreground"}>
                         {alert.type} • {alert.affected_municipality || 'Province-wide'}
                         {alert.issued_at && ` • ${moment(alert.issued_at).format('MMM D, HH:mm')}`}
                       </p>

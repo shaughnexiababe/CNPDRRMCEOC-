@@ -50,6 +50,7 @@ dependencies {
     implementation(libs.maplibre.android)
     implementation(libs.mapbox.turf)
     implementation(libs.mapbox.geojson)
+    implementation(libs.play.services.location)
     
     // Network & Data
     implementation(libs.retrofit)

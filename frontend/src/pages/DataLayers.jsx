@@ -10,8 +10,9 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Layers, Upload, Database, FileText } from 'lucide-react';
+import { Plus, Layers, Upload, Database, FileText, Download, Loader2, Trash2 } from 'lucide-react';
 import { MUNICIPALITIES, HAZARD_TYPES } from '@/lib/constants';
+import axios from 'axios';
 
 const typeColors = {
   flood: 'bg-blue-500/10 text-blue-600',
@@ -31,6 +32,7 @@ export default function DataLayers() {
     name: '', type: 'flood', format: 'geojson', description: '',
     source: '', municipality: '', file_url: '', is_active: true,
   });
+  const [importingLayerId, setImportingLayerId] = useState(null);
 
   const { data: layers = [], isLoading } = useQuery({
     queryKey: ['layers'],
@@ -53,6 +55,75 @@ export default function DataLayers() {
     mutationFn: ({ id, is_active }) => cnpdrrmceoc.entities.HazardLayer.update(id, { is_active }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['layers'] }),
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => cnpdrrmceoc.entities.HazardLayer.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['layers'] });
+      // If a hazard layer was used for exposure calculations, we might need to refresh facilities too
+      queryClient.invalidateQueries({ queryKey: ['facilities'] });
+    },
+  });
+
+  const handleImportToRegistry = async (layer) => {
+    setImportingLayerId(layer.id);
+    try {
+      let data;
+      if (layer.file_url.startsWith('data:')) {
+        const jsonString = atob(layer.file_url.split(',')[1]);
+        data = JSON.parse(jsonString);
+      } else {
+        const response = await axios.get(layer.file_url);
+        data = response.data;
+      }
+
+      const features = data.features || [];
+      const toImport = [];
+
+      for (const feature of features) {
+        const props = feature.properties || {};
+        const geom = feature.geometry;
+        let lat, lng;
+
+        if (geom?.type === 'Point') {
+          [lng, lat] = geom.coordinates;
+        } else if (geom?.type === 'Polygon') {
+          const ring = geom.coordinates[0];
+          lng = ring.reduce((acc, c) => acc + c[0], 0) / ring.length;
+          lat = ring.reduce((acc, c) => acc + c[1], 0) / ring.length;
+        }
+
+        if (lat && lng) {
+          toImport.push({
+            name: props.name || props.Name || `${layer.name} Item ${toImport.length + 1}`,
+            type: props.type || props.amenity || 'other',
+            municipality: props.municipality || layer.municipality || '',
+            barangay: props.barangay || '',
+            latitude: Number(lat),
+            longitude: Number(lng),
+            status: 'operational',
+            flood_exposure: props.flood_exposure || 'none',
+            landslide_exposure: props.landslide_exposure || 'none',
+            storm_surge_exposure: props.storm_surge_exposure || 'none',
+          });
+        }
+      }
+
+      if (toImport.length > 0) {
+        await cnpdrrmceoc.entities.Facility.createMany(toImport);
+        queryClient.invalidateQueries({ queryKey: ['facilities'] });
+        alert(`Successfully imported ${toImport.length} facilities from ${layer.name} to the registry.`);
+      }
+    } catch (err) {
+      console.error("Layer Import Error:", err);
+      const errorMessage = err.name === 'SyntaxError'
+        ? `Invalid GeoJSON syntax in layer "${layer.name}": ${err.message}`
+        : `Failed to import layer: ${err.message}`;
+      alert(errorMessage);
+    } finally {
+      setImportingLayerId(null);
+    }
+  };
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -125,21 +196,36 @@ export default function DataLayers() {
               </div>
               <div>
                 <Label className="text-xs">Source</Label>
-                <Input value={form.source} onChange={e => setForm({ ...form, source: e.target.value })} placeholder="e.g. DENR-MGB, HazardHunterPH" />
+                <Input value={form.source} onChange={e => setForm({ ...form, source: e.target.value })} placeholder="e.g. DENR-MGB, DOST-PHIVOLCS" />
+              </div>
+              <div>
+                <Label className="text-xs">Data Source (ArcGIS Service URL)</Label>
+                <div className="space-y-2 mt-1">
+                  <Input
+                    placeholder="https://.../MapServer/0"
+                    value={form.file_url}
+                    onChange={e => setForm({ ...form, file_url: e.target.value })}
+                  />
+                  <p className="text-[10px] text-muted-foreground italic">
+                    Paste the ArcGIS Layer URL (ending in /0, /1, etc.). The system will handle query parameters automatically.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <div className="h-px bg-border flex-1" />
+                    <span className="text-[10px] text-muted-foreground uppercase">OR</span>
+                    <div className="h-px bg-border flex-1" />
+                  </div>
+                  <label className="flex items-center justify-center gap-2 p-4 rounded-lg border-2 border-dashed cursor-pointer hover:bg-muted/50 transition-colors">
+                    <Upload className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">
+                      {uploading ? 'Uploading...' : 'Upload Local GeoJSON/KML'}
+                    </span>
+                    <input type="file" accept=".geojson,.json,.kml" onChange={handleFileUpload} className="hidden" />
+                  </label>
+                </div>
               </div>
               <div>
                 <Label className="text-xs">Description</Label>
                 <Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} />
-              </div>
-              <div>
-                <Label className="text-xs">Upload File</Label>
-                <label className="flex items-center justify-center gap-2 p-6 rounded-lg border-2 border-dashed cursor-pointer hover:bg-muted/50 transition-colors mt-1">
-                  <Upload className="w-5 h-5 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">
-                    {uploading ? 'Uploading...' : form.file_url ? 'File uploaded ✓' : 'Click to upload GeoJSON or KML'}
-                  </span>
-                  <input type="file" accept=".geojson,.json,.kml" onChange={handleFileUpload} className="hidden" />
-                </label>
               </div>
               <Button type="submit" className="w-full" disabled={createMutation.isPending}>
                 {createMutation.isPending ? 'Saving...' : 'Save Layer'}
@@ -190,11 +276,36 @@ export default function DataLayers() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                  {layer.type === 'infrastructure' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-[10px] gap-1 text-primary"
+                      onClick={() => handleImportToRegistry(layer)}
+                      disabled={importingLayerId === layer.id}
+                    >
+                      {importingLayerId === layer.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                      Import Features
+                    </Button>
+                  )}
                   <Label className="text-[10px] text-muted-foreground">{layer.is_active ? 'Active' : 'Inactive'}</Label>
                   <Switch
                     checked={layer.is_active !== false}
                     onCheckedChange={(checked) => toggleMutation.mutate({ id: layer.id, is_active: checked })}
                   />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive transition-colors"
+                    onClick={() => {
+                      if (confirm(`Are you sure you want to delete the "${layer.name}" layer?`)) {
+                        deleteMutation.mutate(layer.id);
+                      }
+                    }}
+                    disabled={deleteMutation.isPending}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </CardContent>
             </Card>

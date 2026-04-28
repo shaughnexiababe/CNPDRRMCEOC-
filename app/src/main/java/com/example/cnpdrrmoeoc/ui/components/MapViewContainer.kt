@@ -18,6 +18,7 @@ import org.maplibre.android.maps.Style
 @Composable
 fun MapViewContainer(
     modifier: Modifier = Modifier,
+    isOfflineMode: Boolean = false,
     onMapReady: (org.maplibre.android.maps.MapLibreMap) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -30,22 +31,35 @@ fun MapViewContainer(
     val mapView = remember {
         MapView(context).apply {
             getMapAsync { map ->
-                map.setStyle(Style.Builder().fromUri("https://demotiles.maplibre.org/style.json")) { style ->
-                    // OFFLINE MAP LOGIC:
-                    // If you have a local .mbtiles file in assets, you can add it here.
-                    // e.g. style.addSource(VectorSource("offline-source", "asset://cam_norte_basemap.mbtiles"))
-                    // This allows the map to render even without internet connection.
+                // Choose style based on connectivity mode
+                val styleUri = if (isOfflineMode) {
+                    // This refers to a local style in assets that uses MBTiles or local tiles
+                    "asset://styles/offline_style.json"
+                } else {
+                    "https://demotiles.maplibre.org/style.json"
+                }
+
+                map.setStyle(Style.Builder().fromUri(styleUri)) { style ->
+                    if (isOfflineMode) {
+                        // OFFLINE MBTiles Integration:
+                        // In a full implementation, we'd use a custom FileSource or 
+                        // a local HTTP server to serve tiles from the .mbtiles SQLite file.
+                        // Here we set the infrastructure to handle local sources.
+                        try {
+                            // Example: Adding a local vector source from MBTiles
+                            // val offlineMbtiles = File(context.filesDir, "cam_norte.mbtiles")
+                            // if (offlineMbtiles.exists()) {
+                            //    style.addSource(VectorSource("offline-source", "mbtiles://${offlineMbtiles.absolutePath}"))
+                            // }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
                 }
                 
-                // Enable Location if permissions granted
-                map.addOnMapClickListener {
-                    // Logic for custom pin dropping in the field
-                    true
-                }
-                // Focus on Camarines Norte center (approx)
                 map.cameraPosition = CameraPosition.Builder()
                     .target(LatLng(14.1173, 122.9553))
-                    .zoom(9.5)
+                    .zoom(10.0)
                     .build()
                 onMapReady(map)
             }
