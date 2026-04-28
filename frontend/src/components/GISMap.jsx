@@ -191,7 +191,7 @@ export default function GISMap({
         <LayersControl position="topright">
           <LayersControl.BaseLayer checked name="Street Map">
             <TileLayer
-              attribution='&copy; OpenStreetMap'
+              attribution='&copy; OpenStreetMap | GeoRisk v1.2'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
           </LayersControl.BaseLayer>
