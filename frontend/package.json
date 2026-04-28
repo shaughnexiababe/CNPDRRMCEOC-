@@ -33,7 +33,6 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
-    "esri-leaflet": "^3.0.19",
     "firebase": "^12.12.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.454.0",

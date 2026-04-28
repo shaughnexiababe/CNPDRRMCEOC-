@@ -1,9 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, LayersControl, CircleMarker, useMap, GeoJSON } from 'react-leaflet';
-import * as esri from 'esri-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { renderToStaticMarkup } from 'react-dom/server';
+import {
+  Hospital, GraduationCap, Home, Flame,
+  Shield, Building2, Landmark, ArrowLeftRight
+} from 'lucide-react';
+
 import { MAP_CENTER, MAP_ZOOM } from '@/lib/constants';
 import { fetchGeoJSON, GEORISK_LAYERS_CONFIG } from '@/lib/spatial';
 import { Badge } from '@/components/ui/badge';
+
+// FIX: Ensure Leaflet icons don't break on build
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 function FlyToLocation({ coords, zoom = 13 }) {
   const map = useMap();
@@ -13,42 +28,42 @@ function FlyToLocation({ coords, zoom = 13 }) {
   return null;
 }
 
-function RemoteGeoJSON({ url, color, layerName }) {
+function RemoteGeoJSON({ url, color, layerName, isGeoRisk = false }) {
   const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (url) {
-      if (url.startsWith('https://mock-storage.com')) {
-         setData({
-           type: "FeatureCollection",
-           features: [
-             {
-               type: "Feature",
-               properties: { susceptibility: 'very_high', name: 'Sample Site Boundary' },
-               geometry: { type: "Polygon", coordinates: [[[122.9553, 14.1173], [123.0156, 14.1089], [122.9734, 14.1256], [122.9553, 14.1173]]] }
-             }
-           ]
-         });
-      } else {
-        // Use the centralized fetchGeoJSON utility for consistent encoding and retries
-        fetchGeoJSON(url)
-          .then(res => setData(res))
-          .catch(err => console.error(`Map Layer Load Error (${layerName}):`, err));
-      }
+    if (!url) return;
+
+    setLoading(true);
+    // Append f=geojson for ArcGIS Servers if not present
+    let finalUrl = url;
+    if (isGeoRisk && !url.includes('f=geojson')) {
+        finalUrl = url.includes('?') ? `${url}&f=geojson` : `${url}/query?where=1%3D1&outFields=*&f=geojson`;
     }
-  }, [url, layerName]);
+
+    fetchGeoJSON(finalUrl)
+      .then(res => {
+        setData(res);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(`Map Layer Load Error (${layerName}):`, err);
+        setLoading(false);
+      });
+  }, [url, layerName, isGeoRisk]);
 
   if (!data) return null;
 
   const onEachFeature = (feature, layer) => {
     if (feature.properties) {
-      const { name, barangay, municipality, susceptibility, info } = feature.properties;
+      const { name, barangay, municipality, susceptibility, info, title } = feature.properties;
       layer.bindPopup(`
         <div class="text-xs font-sans">
-          <p class="font-bold border-b pb-1 mb-1">${name || layerName}</p>
+          <p class="font-bold border-b pb-1 mb-1">${name || title || layerName}</p>
           ${barangay ? `<p><b>Barangay:</b> ${barangay}</p>` : ''}
           ${municipality ? `<p><b>Municipality:</b> ${municipality}</p>` : ''}
-          <p class="capitalize"><b>Susceptibility:</b> ${susceptibility?.replace('_', ' ') || 'High'}</p>
+          <p class="capitalize"><b>Status/Susceptibility:</b> ${susceptibility?.replace('_', ' ') || 'Assessed'}</p>
           ${info ? `<p class="mt-1 text-muted-foreground">${info}</p>` : ''}
         </div>
       `);
@@ -56,14 +71,12 @@ function RemoteGeoJSON({ url, color, layerName }) {
   };
 
   const getStyle = (feature) => {
-    const susc = feature.properties?.susceptibility?.toLowerCase();
-    let fillColor = color;
+    const susc = (feature.properties?.susceptibility || feature.properties?.severity || '').toLowerCase();
+    let fillColor = color || '#3B82F6';
 
-    // Override color based on MGB/Project NOAH standard susceptibility
-    if (susc === 'very_high' || susc === 'critical') fillColor = '#ef4444'; // Red
-    else if (susc === 'high') fillColor = '#f97316'; // Orange
-    else if (susc === 'moderate' || susc === 'medium') fillColor = '#eab308'; // Yellow
-    else if (susc === 'low') fillColor = '#22c55e'; // Green
+    if (susc === 'very_high' || susc === 'critical' || susc.includes('high')) fillColor = '#ef4444';
+    else if (susc === 'moderate' || susc === 'medium') fillColor = '#eab308';
+    else if (susc === 'low') fillColor = '#22c55e';
 
     return {
       fillColor,
@@ -74,64 +87,21 @@ function RemoteGeoJSON({ url, color, layerName }) {
     };
   };
 
-  return (
-    <React.Fragment>
-      {data && data.features && data.features.length > 0 && (
-        <GeoJSON key={url} data={data} style={getStyle} onEachFeature={onEachFeature} />
-      )}
-    </React.Fragment>
-  );
+  return data.features ? <GeoJSON key={url} data={data} style={getStyle} onEachFeature={onEachFeature} /> : null;
 }
 
-/**
- * Component to load ArcGIS Feature Layers or Map Services directly
- */
-function ArcGISLayer({ url, type = 'feature', opacity = 0.7 }) {
-  const map = useMap();
+const facilityColors = {
+  hospital: '#EF4444',
+  school: '#3B82F6',
+  evacuation_center: '#22C55E',
+  fire_station: '#F97316',
+  police_station: '#6366F1',
+  barangay_hall: '#8B5CF6',
+  government_building: '#14B8A6',
+  bridge: '#F59E0B',
+};
 
-  useEffect(() => {
-    if (!url) return;
-
-    let layer;
-    try {
-      if (type === 'feature') {
-        layer = esri.featureLayer({
-          url: url,
-          precision: 5,
-          opacity: opacity
-        });
-      } else {
-        layer = esri.dynamicMapLayer({
-          url: url,
-          opacity: opacity
-        });
-      }
-
-      layer.addTo(map);
-
-      // Clean up on unmount
-      return () => {
-        if (layer) map.removeLayer(layer);
-      };
-    } catch (err) {
-      console.error("ArcGIS Layer Error:", err);
-    }
-  }, [url, type, opacity, map]);
-
-  return null;
-}
-
-import L from 'leaflet';
-import { renderToStaticMarkup } from 'react-dom/server';
-import {
-  Hospital, GraduationCap, Home, Flame,
-  Shield, Building2, Landmark, ArrowLeftRight
-} from 'lucide-react';
-
-// Cache for custom icons to prevent re-rendering them on every map update
 const iconCache = new Map();
-
-// Create a custom icon generator using Lucide icons
 const getFacilityIcon = (type, isAtRisk) => {
   const cacheKey = `${type}-${isAtRisk}`;
   if (iconCache.has(cacheKey)) return iconCache.get(cacheKey);
@@ -178,25 +148,6 @@ const getFacilityIcon = (type, isAtRisk) => {
   return icon;
 };
 
-const facilityColors = {
-  hospital: '#EF4444',
-  school: '#3B82F6',
-  evacuation_center: '#22C55E',
-  fire_station: '#F97316',
-  police_station: '#6366F1',
-  barangay_hall: '#8B5CF6',
-  government_building: '#14B8A6',
-  bridge: '#F59E0B',
-};
-
-const hazardOverlayColors = {
-  flood: '#3B82F6',
-  landslide: '#A855F7',
-  storm_surge: '#06B6D4',
-  liquefaction: '#F97316',
-  fault_line: '#EF4444',
-};
-
 export default function GISMap({
   facilities = [],
   alerts = [],
@@ -216,18 +167,19 @@ export default function GISMap({
   const activeLayers = layers.filter(l => l.is_active !== false && l.file_url);
 
   return (
-    <div className={className} style={{ height }}>
+    <div className={`relative w-full overflow-hidden rounded-lg border bg-background ${className}`} style={{ height }}>
       <MapContainer
         center={MAP_CENTER}
         zoom={MAP_ZOOM}
-        style={{ height: '100%', width: '100%', borderRadius: 'var(--radius)' }}
+        style={{ height: '100%', width: '100%', zIndex: 1 }}
         zoomControl={true}
       >
         {flyTo && <FlyToLocation coords={flyTo} zoom={flyToZoom} />}
+
         <LayersControl position="topright">
           <LayersControl.BaseLayer checked name="Street Map">
             <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org">OpenStreetMap</a>'
+              attribution='&copy; OpenStreetMap'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
           </LayersControl.BaseLayer>
@@ -237,113 +189,58 @@ export default function GISMap({
               url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
             />
           </LayersControl.BaseLayer>
-          <LayersControl.BaseLayer name="Terrain">
-            <TileLayer
-              attribution='&copy; OpenTopoMap'
-              url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
-            />
-          </LayersControl.BaseLayer>
 
-          {/* Custom Hazard Layers */}
+          {/* GeoRiskPH Authoritative Hazards */}
+          {GEORISK_LAYERS_CONFIG.map((layer) => (
+            <LayersControl.Overlay key={layer.id} name={layer.name}>
+              <RemoteGeoJSON url={layer.url} layerName={layer.name} isGeoRisk={true} />
+            </LayersControl.Overlay>
+          ))}
+
+          {/* User Custom Layers */}
           {activeLayers.map((layer) => (
             <LayersControl.Overlay key={layer.id} checked name={`Layer: ${layer.name}`}>
-              {layer.file_url.includes('/rest/services/') ? (
-                <ArcGISLayer url={layer.file_url} type={layer.file_url.includes('FeatureServer') ? 'feature' : 'map'} />
-              ) : (
-                <RemoteGeoJSON url={layer.file_url} color={hazardOverlayColors[layer.type] || '#6B7280'} layerName={layer.name} />
-              )}
+              <RemoteGeoJSON url={layer.file_url} layerName={layer.name} />
             </LayersControl.Overlay>
           ))}
 
-          {/* Official GeoRiskPH Authoritative Layers */}
-          {GEORISK_LAYERS_CONFIG && GEORISK_LAYERS_CONFIG.map((layer) => (
-            <LayersControl.Overlay key={`georisk-${layer.id}`} name={layer.name}>
-              <ArcGISLayer url={layer.url} type={layer.type} opacity={0.6} />
-            </LayersControl.Overlay>
-          ))}
-
-          <LayersControl.Overlay checked name="Facilities">
+          <LayersControl.Overlay checked name="Facilities & Assets">
             <React.Fragment>
-              {facilityMarkers.map((f) => {
-                const isHighlighted = highlightedIds.includes(f.id);
-                return (
-                  <Marker
-                    key={`facility-${f.id}-${isHighlighted}`}
-                    position={[f.latitude, f.longitude]}
-                    icon={getFacilityIcon(f.type, isHighlighted)}
-                  >
-                    <Popup>
-                      <div className="text-xs space-y-1">
-                        {isHighlighted && <Badge variant="destructive" className="mb-1 text-[8px] h-4">AT RISK</Badge>}
-                        <div className="font-bold border-b pb-1">{f.name}</div>
-                        <div><strong>Type:</strong> {f.type?.replace(/_/g, ' ')}</div>
-                        <div><strong>Muni:</strong> {f.municipality}</div>
-                        {f.exposures && Object.entries(f.exposures).some(([_, v]) => v !== 'none') && (
-                          <div className="pt-1 border-t mt-1">
-                            <strong className="text-[10px] text-destructive">Agency Hazard Tagging:</strong>
-                            {Object.entries(f.exposures)
-                              .filter(([_, v]) => v !== 'none')
-                              .map(([k, v]) => (
-                                <div key={k} className="flex justify-between items-center gap-2 mt-0.5">
-                                  <span className="capitalize text-[9px]">{k.replace('_exposure', '').replace('_', ' ')}:</span>
-                                  <Badge variant="outline" className="text-[8px] h-3.5 px-1 bg-red-50">{v}</Badge>
-                                </div>
-                              ))}
-                          </div>
-                        )}
-                        {f.capacity && <div><strong>Capacity:</strong> {f.capacity}</div>}
-                      </div>
-                    </Popup>
-                  </Marker>
-                );
-              })}
-            </React.Fragment>
-          </LayersControl.Overlay>
-
-          <LayersControl.Overlay checked name="Active Alerts">
-            <React.Fragment>
-              {alertMarkers.map((a) => (
-                <CircleMarker
-                  key={`alert-${a.id}`}
-                  center={[a.latitude, a.longitude]}
-                  radius={12}
-                  fillColor={a.severity === 'very_high' ? '#EF4444' : a.severity === 'high' ? '#F97316' : '#F59E0B'}
-                  fillOpacity={0.4}
-                  color={a.severity === 'very_high' ? '#EF4444' : '#F97316'}
-                  weight={2}
+              {facilityMarkers.map((f) => (
+                <Marker
+                  key={`facility-${f.id}`}
+                  position={[f.latitude, f.longitude]}
+                  icon={getFacilityIcon(f.type, highlightedIds.includes(f.id))}
                 >
                   <Popup>
                     <div className="text-xs">
-                      <strong>{a.title}</strong>
-                      <br />Severity: {a.severity?.replace('_', ' ')}
-                      <br />Type: {a.type}
-                      {a.affected_municipality && <><br />Area: {a.affected_municipality}</>}
-                    </div>
-                  </Popup>
-                </CircleMarker>
-              ))}
-            </React.Fragment>
-          </LayersControl.Overlay>
-
-          <LayersControl.Overlay name="Incident Reports">
-            <React.Fragment>
-              {incidentMarkers.map((i) => (
-                <Marker key={`incident-${i.id}`} position={[i.latitude, i.longitude]}>
-                  <Popup>
-                    <div className="text-xs">
-                      <strong>{i.title}</strong>
-                      <br />Type: {i.type?.replace(/_/g, ' ')}
-                      <br />Status: {i.status}
-                      {i.municipality && <><br />{i.municipality}</>}
+                        <strong>{f.name}</strong><br/>
+                        {f.type?.replace(/_/g, ' ')}
                     </div>
                   </Popup>
                 </Marker>
               ))}
             </React.Fragment>
           </LayersControl.Overlay>
+
+          <LayersControl.Overlay checked name="Active Alerts">
+             <React.Fragment>
+                {alertMarkers.map(a => (
+                    <CircleMarker
+                        key={`alert-${a.id}`}
+                        center={[a.latitude, a.longitude]}
+                        radius={10}
+                        fillColor="#ef4444"
+                        fillOpacity={0.5}
+                        color="#ef4444"
+                    >
+                        <Popup>{a.title}</Popup>
+                    </CircleMarker>
+                ))}
+             </React.Fragment>
+          </LayersControl.Overlay>
         </LayersControl>
       </MapContainer>
     </div>
   );
 }
-
