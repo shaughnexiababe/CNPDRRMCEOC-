@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, LayersControl, CircleMarker, useMap, GeoJSON } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, LayersControl, CircleMarker, useMap, GeoJSON, LayerGroup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -205,7 +205,7 @@ export default function GISMap({
           ))}
 
           <LayersControl.Overlay checked name="Facilities & Assets">
-            <React.Fragment>
+            <LayerGroup>
               {facilityMarkers.map((f) => (
                 <Marker
                   key={`facility-${f.id}`}
@@ -220,11 +220,11 @@ export default function GISMap({
                   </Popup>
                 </Marker>
               ))}
-            </React.Fragment>
+            </LayerGroup>
           </LayersControl.Overlay>
 
           <LayersControl.Overlay checked name="Active Alerts">
-             <React.Fragment>
+             <LayerGroup>
                 {alertMarkers.map(a => (
                     <CircleMarker
                         key={`alert-${a.id}`}
@@ -237,7 +237,7 @@ export default function GISMap({
                         <Popup>{a.title}</Popup>
                     </CircleMarker>
                 ))}
-             </React.Fragment>
+             </LayerGroup>
           </LayersControl.Overlay>
         </LayersControl>
       </MapContainer>
