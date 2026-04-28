@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, LayersControl, CircleMarker, useMap, GeoJSON } from 'react-leaflet';
+import * as esri from 'esri-leaflet';
 import { MAP_CENTER, MAP_ZOOM } from '@/lib/constants';
+import { GEORISK_LAYERS_CONFIG } from '@/lib/spatial'; // I'll add them to spatial or import from georisk
 import 'leaflet/dist/leaflet.css';
 import { fetchGeoJSON } from '@/lib/spatial';
 import { Badge } from '@/components/ui/badge';
@@ -81,6 +83,44 @@ function RemoteGeoJSON({ url, color, layerName }) {
       )}
     </React.Fragment>
   );
+}
+
+/**
+ * Component to load ArcGIS Feature Layers or Map Services directly
+ */
+function ArcGISLayer({ url, type = 'feature', opacity = 0.7 }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!url) return;
+
+    let layer;
+    try {
+      if (type === 'feature') {
+        layer = esri.featureLayer({
+          url: url,
+          precision: 5,
+          opacity: opacity
+        });
+      } else {
+        layer = esri.dynamicMapLayer({
+          url: url,
+          opacity: opacity
+        });
+      }
+
+      layer.addTo(map);
+
+      // Clean up on unmount
+      return () => {
+        if (layer) map.removeLayer(layer);
+      };
+    } catch (err) {
+      console.error("ArcGIS Layer Error:", err);
+    }
+  }, [url, type, opacity, map]);
+
+  return null;
 }
 
 import L from 'leaflet';
@@ -209,7 +249,18 @@ export default function GISMap({
           {/* Custom Hazard Layers */}
           {activeLayers.map((layer) => (
             <LayersControl.Overlay key={layer.id} checked name={`Layer: ${layer.name}`}>
-              <RemoteGeoJSON url={layer.file_url} color={hazardOverlayColors[layer.type] || '#6B7280'} layerName={layer.name} />
+              {layer.file_url.includes('/rest/services/') ? (
+                <ArcGISLayer url={layer.file_url} type={layer.file_url.includes('FeatureServer') ? 'feature' : 'map'} />
+              ) : (
+                <RemoteGeoJSON url={layer.file_url} color={hazardOverlayColors[layer.type] || '#6B7280'} layerName={layer.name} />
+              )}
+            </LayersControl.Overlay>
+          ))}
+
+          {/* Official GeoRiskPH Authoritative Layers */}
+          {GEORISK_LAYERS_CONFIG.map((layer) => (
+            <LayersControl.Overlay key={layer.id} name={layer.name}>
+              <ArcGISLayer url={layer.url} type={layer.type} opacity={0.6} />
             </LayersControl.Overlay>
           ))}
 

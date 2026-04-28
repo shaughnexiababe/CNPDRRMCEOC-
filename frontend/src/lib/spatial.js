@@ -225,3 +225,23 @@ const webMercatorToWgs84 = (x, y) => {
   lat = (180 / Math.PI) * (2 * Math.atan(Math.exp((lat * Math.PI) / 180)) - Math.PI / 2);
   return [lng, lat];
 };
+
+export const GEORISK_SERVICES = {
+  FLOOD_SUSCEPTIBILITY: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/MGBPublic/Flood/MapServer",
+  RAIN_INDUCED_LANDSLIDE: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/MGBPublic/RainInducedLandslide/MapServer",
+  ACTIVE_FAULTS: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/ActiveFault/MapServer",
+  GROUND_SHAKING: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/GroundShaking/MapServer",
+  LIQUEFACTION: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/Liquefaction/MapServer",
+  TSUNAMI: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/Tsunami/MapServer",
+  STORM_SURGE: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PAGASAPublic/StormSurge/MapServer",
+};
+
+export const GEORISK_LAYERS_CONFIG = [
+  { id: 'gr-flood', name: 'GeoRisk: Flood Susceptibility (MGB)', url: GEORISK_SERVICES.FLOOD_SUSCEPTIBILITY, type: 'map', category: 'hydro' },
+  { id: 'gr-landslide', name: 'GeoRisk: Rain-Induced Landslide (MGB)', url: GEORISK_SERVICES.RAIN_INDUCED_LANDSLIDE, type: 'map', category: 'hydro' },
+  { id: 'gr-faults', name: 'GeoRisk: Active Faults (PHIVOLCS)', url: GEORISK_SERVICES.ACTIVE_FAULTS, type: 'map', category: 'seismic' },
+  { id: 'gr-shaking', name: 'GeoRisk: Ground Shaking (PHIVOLCS)', url: GEORISK_SERVICES.GROUND_SHAKING, type: 'map', category: 'seismic' },
+  { id: 'gr-liquefaction', name: 'GeoRisk: Liquefaction (PHIVOLCS)', url: GEORISK_SERVICES.LIQUEFACTION, type: 'map', category: 'seismic' },
+  { id: 'gr-tsunami', name: 'GeoRisk: Tsunami Hazard (PHIVOLCS)', url: GEORISK_SERVICES.TSUNAMI, type: 'map', category: 'seismic' },
+  { id: 'gr-surge', name: 'GeoRisk: Storm Surge (PAGASA)', url: GEORISK_SERVICES.STORM_SURGE, type: 'map', category: 'hydro' },
+];
