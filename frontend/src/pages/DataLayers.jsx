@@ -10,8 +10,9 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Layers, Upload, Database, FileText, Download, Loader2, Trash2 } from 'lucide-react';
+import { Plus, Layers, Upload, Database, FileText, Download, Loader2, Trash2, ShieldCheck } from 'lucide-react';
 import { MUNICIPALITIES, HAZARD_TYPES } from '@/lib/constants';
+import { GEORISK_LAYERS_CONFIG } from '@/lib/spatial';
 import axios from 'axios';
 
 const typeColors = {
@@ -245,6 +246,37 @@ export default function DataLayers() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Authoritative GeoRiskPH Layers Section */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="w-5 h-5 text-green-600" />
+          <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Authoritative GeoRiskPH Layers</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {GEORISK_LAYERS_CONFIG.map((layer) => (
+            <Card key={layer.id} className="border-green-100 bg-green-50/20">
+              <CardContent className="p-3 flex items-center justify-between">
+                <div className="min-w-0">
+                  <h3 className="text-xs font-semibold truncate">{layer.name}</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-[9px] h-4 px-1 border-green-200">Official</Badge>
+                    <span className="text-[9px] text-muted-foreground">Live Service</span>
+                  </div>
+                </div>
+                <div className="shrink-0 text-[10px] text-green-600 font-medium">
+                  Active
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 pt-4">
+        <Layers className="w-5 h-5 text-muted-foreground" />
+        <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Local & Uploaded Layers</h2>
+      </div>
 
       <div className="grid gap-3">
         {isLoading ? (
