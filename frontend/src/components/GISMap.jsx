@@ -59,33 +59,44 @@ function RemoteGeoJSON({ url, color, layerName, isGeoRisk = false }) {
 
   const onEachFeature = (feature, layer) => {
     if (feature.properties) {
-      const { name, barangay, municipality, susceptibility, info, title } = feature.properties;
-      layer.bindPopup(`
-        <div class="text-xs font-sans">
-          <p class="font-bold border-b pb-1 mb-1">${name || title || layerName}</p>
-          ${barangay ? `<p><b>Barangay:</b> ${barangay}</p>` : ''}
-          ${municipality ? `<p><b>Municipality:</b> ${municipality}</p>` : ''}
-          <p class="capitalize"><b>Status/Susceptibility:</b> ${susceptibility?.replace('_', ' ') || 'Assessed'}</p>
-          ${info ? `<p class="mt-1 text-muted-foreground">${info}</p>` : ''}
-        </div>
-      `);
+      const props = feature.properties;
+      const title = props.name || props.title || props.Municipality || props.Hazard || layerName;
+
+      let popupContent = `<div class="text-xs font-sans"><p class="font-bold border-b pb-1 mb-1">${title}</p>`;
+
+      if (props.Barangay || props.BARANGAY) popupContent += `<p><b>Barangay:</b> ${props.Barangay || props.BARANGAY}</p>`;
+      if (props.Municipality || props.MUNICIPALI) popupContent += `<p><b>Municipality:</b> ${props.Municipality || props.MUNICIPALI}</p>`;
+
+      const susc = props.susceptibility || props.Susceptibil || props.RiskLevel || props.Severity;
+      if (susc) popupContent += `<p class="capitalize"><b>Susceptibility:</b> ${susc.toString().replace('_', ' ')}</p>`;
+
+      popupContent += `</div>`;
+      layer.bindPopup(popupContent);
     }
   };
 
   const getStyle = (feature) => {
-    const susc = (feature.properties?.susceptibility || feature.properties?.severity || '').toLowerCase();
+    const props = feature.properties || {};
+    const susc = (props.susceptibility || props.Susceptibil || props.RiskLevel || props.Severity || '').toString().toLowerCase();
+
     let fillColor = color || '#3B82F6';
 
-    if (susc === 'very_high' || susc === 'critical' || susc.includes('high')) fillColor = '#ef4444';
-    else if (susc === 'moderate' || susc === 'medium') fillColor = '#eab308';
-    else if (susc === 'low') fillColor = '#22c55e';
+    if (susc.includes('very high') || susc.includes('critical') || susc === '4' || susc.includes('v_high')) {
+      fillColor = '#ef4444'; // Red
+    } else if (susc.includes('high') || susc === '3') {
+      fillColor = '#f97316'; // Orange
+    } else if (susc.includes('moderate') || susc.includes('medium') || susc === '2') {
+      fillColor = '#eab308'; // Yellow
+    } else if (susc.includes('low') || susc === '1') {
+      fillColor = '#22c55e'; // Green
+    }
 
     return {
       fillColor,
       weight: 1,
       opacity: 1,
       color: 'white',
-      fillOpacity: 0.5,
+      fillOpacity: 0.6,
     };
   };
 
@@ -165,7 +176,6 @@ export default function GISMap({
   const facilityMarkers = facilities.filter(f => f.latitude && f.longitude);
   const alertMarkers = alerts.filter(a => a.latitude && a.longitude && (a.status === 'active' || a.status === 'monitoring'));
   const incidentMarkers = incidents.filter(i => i.latitude && i.longitude);
-  const densityMarkers = extraMarkers.filter(m => m.type === 'population_density');
   const activeLayers = layers.filter(l => l.is_active !== false && l.file_url);
 
   return (
@@ -192,16 +202,16 @@ export default function GISMap({
             />
           </LayersControl.BaseLayer>
 
-          {/* GeoRiskPH Authoritative Hazards */}
+          {/* GeoRiskPH Hazard Overlays */}
           {GEORISK_LAYERS_CONFIG.map((layer) => (
             <LayersControl.Overlay key={layer.id} name={layer.name}>
               <RemoteGeoJSON url={layer.url} layerName={layer.name} isGeoRisk={true} />
             </LayersControl.Overlay>
           ))}
 
-          {/* User Custom Layers */}
+          {/* Custom Hazard Layers (Local/Uploaded) */}
           {activeLayers.map((layer) => (
-            <LayersControl.Overlay key={layer.id} checked name={`Layer: ${layer.name}`}>
+            <LayersControl.Overlay key={`local-${layer.id}`} name={`Local: ${layer.name}`}>
               <RemoteGeoJSON url={layer.file_url} layerName={layer.name} />
             </LayersControl.Overlay>
           ))}
