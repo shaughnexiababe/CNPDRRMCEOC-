@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
+import BoyKalasagChat from './components/BoyKalasagChat';
 import { cn } from '@/lib/utils';
 
 export default function AppLayout() {
@@ -21,6 +22,7 @@ export default function AppLayout() {
         <main className="p-4 md:p-6">
           <Outlet />
         </main>
+        <BoyKalasagChat />
       </div>
     </div>
   );

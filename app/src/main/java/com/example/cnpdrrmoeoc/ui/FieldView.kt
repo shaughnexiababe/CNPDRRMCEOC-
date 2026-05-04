@@ -49,6 +49,7 @@ fun FieldView(viewModel: GisViewModel = hiltViewModel()) {
                 location?.let {
                     latitude = it.latitude
                     longitude = it.longitude
+                    viewModel.updateLocation(it.latitude, it.longitude)
                     Toast.makeText(context, "Location captured!", Toast.LENGTH_SHORT).show()
                 }
             }
@@ -114,6 +115,7 @@ fun FieldView(viewModel: GisViewModel = hiltViewModel()) {
                                 location?.let {
                                     latitude = it.latitude
                                     longitude = it.longitude
+                                    viewModel.updateLocation(it.latitude, it.longitude)
                                 }
                             }
                         } else {

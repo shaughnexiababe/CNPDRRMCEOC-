@@ -22,9 +22,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.example.cnpdrrmoeoc.ui.components.BoyKalasagFabOverlay
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.cnpdrrmoeoc.R
 import com.example.cnpdrrmoeoc.data.AgencyAlert
@@ -67,59 +69,76 @@ fun MainScreen(viewModel: GisViewModel = hiltViewModel()) {
 
     var selectedIndex by remember { mutableIntStateOf(0) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Image(
-                            painter = painterResource(id = R.drawable.logo),
-                            contentDescription = "Logo",
-                            modifier = Modifier.size(32.dp).padding(end = 8.dp)
-                        )
-                        Text(
-                            when(role) {
-                                UserRole.ADMIN -> "PDRRMO Command Center"
-                                UserRole.EOC_PERSONNEL -> "EOC Staff Portal"
-                                else -> "CN-PDRRMO Public"
-                            }, 
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.logout() }) {
-                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Logout")
-                    }
-                }
-            )
-        },
-        bottomBar = {
-            NavigationBar {
-                navigationItems.forEachIndexed { index, item ->
-                    NavigationBarItem(
-                        icon = { Icon(item.icon, contentDescription = item.label) },
-                        label = { Text(item.label) },
-                        selected = selectedIndex == index,
-                        onClick = {
-                            selectedIndex = index
-                            navController.navigate(item.route)
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Image(
+                                painter = painterResource(id = R.drawable.logo),
+                                contentDescription = "Logo",
+                                modifier = Modifier.size(32.dp).padding(end = 8.dp)
+                            )
+                            Text(
+                                when(role) {
+                                    UserRole.ADMIN -> "PDRRMO Command Center"
+                                    UserRole.EOC_PERSONNEL -> "EOC Staff Portal"
+                                    else -> "CN-PDRRMO Public"
+                                }, 
+                                style = MaterialTheme.typography.titleMedium
+                            )
                         }
-                    )
+                    },
+                    actions = {
+                        IconButton(onClick = { viewModel.logout() }) {
+                            Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Logout")
+                        }
+                    }
+                )
+            },
+            bottomBar = {
+                NavigationBar {
+                    navigationItems.forEachIndexed { index, item ->
+                        NavigationBarItem(
+                            icon = { Icon(item.icon, contentDescription = item.label) },
+                            label = { Text(item.label) },
+                            selected = selectedIndex == index,
+                            onClick = {
+                                selectedIndex = index
+                                navController.navigate(item.route)
+                            }
+                        )
+                    }
                 }
             }
+        ) { innerPadding ->
+            NavHost(
+                navController = navController,
+                startDestination = navigationItems.first().route,
+                modifier = Modifier.padding(innerPadding)
+            ) {
+                composable("alerts") { AlertsView() }
+                composable("safetymap") { OperationalView(viewModel) }
+                composable("operations") { OperationsCenterView(viewModel) }
+                composable("report") { FieldView() }
+                composable("analytics") { AnalyticsView() }
+            }
         }
-    ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = navigationItems.first().route,
-            modifier = Modifier.padding(innerPadding)
-        ) {
-            composable("alerts") { AlertsView() }
-            composable("safetymap") { OperationalView(viewModel) }
-            composable("operations") { OperationsCenterView(viewModel) }
-            composable("report") { FieldView() }
-            composable("analytics") { AnalyticsView() }
+        
+        // AI Chatbot Overlay - Hidden on Report screen to avoid blocking forms
+        val navBackStackEntry by navController.currentBackStackEntryAsState()
+        val currentRoute = navBackStackEntry?.destination?.route
+        
+        if (currentRoute != "report") {
+            BoyKalasagFabOverlay(
+                gisViewModel = viewModel,
+                onNavigate = { route ->
+                    navController.navigate(route)
+                    val index = navigationItems.indexOfFirst { it.route == route }
+                    if (index != -1) selectedIndex = index
+                }
+            )
         }
     }
 }

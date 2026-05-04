@@ -33,6 +33,13 @@ class GisViewModel @Inject constructor(
     private val _activeIncidents = MutableStateFlow<List<IncidentReport>>(emptyList())
     val activeIncidents = _activeIncidents.asStateFlow()
 
+    private val _currentLocation = MutableStateFlow<Pair<Double, Double>?>(null)
+    val currentLocation = _currentLocation.asStateFlow()
+
+    fun updateLocation(lat: Double, lon: Double) {
+        _currentLocation.value = lat to lon
+    }
+
     private val _analyticsData = MutableStateFlow<AnalyticsResult?>(null)
     val analyticsData = _analyticsData.asStateFlow()
 
@@ -175,6 +182,17 @@ class GisViewModel @Inject constructor(
 
     fun register(name: String, email: String) {
         authRepository.register(name, email)
+    }
+
+    fun triggerSOS(latitude: Double?, longitude: Double?) {
+        submitReport(
+            title = "SOS EMERGENCY SIGNAL",
+            description = "User triggered an SOS via Bantay AI Chatbot.",
+            type = "Emergency",
+            municipality = "Unknown", // Ideally we should resolve this from coords
+            latitude = latitude,
+            longitude = longitude
+        )
     }
 
     fun logout() {
