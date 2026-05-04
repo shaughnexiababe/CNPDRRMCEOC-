@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, LayersControl, CircleMarker, useMap, GeoJSON, LayerGroup } from 'react-leaflet';
 import L from 'leaflet';
+import * as esri from 'esri-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
@@ -12,13 +13,13 @@ import { MAP_CENTER, MAP_ZOOM } from '@/lib/constants';
 import { fetchGeoJSON } from '@/lib/spatial';
 import { Badge } from '@/components/ui/badge';
 
-// Authoritative Data Configuration (Directly in component to prevent import errors)
+// Authoritative Data Configuration (Professional MapServer Endpoints)
 const GEORISK_CONFIG = [
-  { id: 'gr-flood', name: 'GeoRisk: Flood Susceptibility', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/MGBPublic/Flood/MapServer/0" },
-  { id: 'gr-landslide', name: 'GeoRisk: Rain-Induced Landslide', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/MGBPublic/RainInducedLandslide/MapServer/0" },
-  { id: 'gr-faults', name: 'GeoRisk: Active Faults', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/ActiveFault/MapServer/0" },
-  { id: 'gr-shaking', name: 'GeoRisk: Ground Shaking', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/GroundShaking/MapServer/0" },
-  { id: 'gr-tsunami', name: 'GeoRisk: Tsunami Hazard', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/Tsunami/MapServer/0" }
+  { id: 'gr-flood', name: 'GeoRisk: Flood Susceptibility', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/MGBPublic/Flood/MapServer" },
+  { id: 'gr-landslide', name: 'GeoRisk: Rain-Induced Landslide', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/MGBPublic/RainInducedLandslide/MapServer" },
+  { id: 'gr-faults', name: 'GeoRisk: Active Faults', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/ActiveFault/MapServer" },
+  { id: 'gr-shaking', name: 'GeoRisk: Ground Shaking', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/GroundShaking/MapServer" },
+  { id: 'gr-tsunami', name: 'GeoRisk: Tsunami Hazard', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/Tsunami/MapServer" }
 ];
 
 // FIX: Ensure Leaflet icons don't break on build
@@ -37,62 +38,58 @@ function FlyToLocation({ coords, zoom = 13 }) {
   return null;
 }
 
-function RemoteGeoJSON({ url, color, layerName, isGeoRisk = false }) {
+/**
+ * Component to load ArcGIS Map Services using Dynamic Rendering (Images)
+ * This is high-performance and avoids loading large GeoJSON files.
+ */
+function ArcGISDynamicLayer({ url, opacity = 0.65 }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!url) return;
+    try {
+      const layer = esri.dynamicMapLayer({
+        url: url,
+        opacity: opacity,
+        useCors: true,
+        f: 'image'
+      }).addTo(map);
+
+      return () => {
+        if (layer) map.removeLayer(layer);
+      };
+    } catch (err) {
+      console.error("ArcGIS Dynamic Layer Error:", err);
+    }
+  }, [url, map, opacity]);
+  return null;
+}
+
+function RemoteGeoJSON({ url, color, layerName }) {
   const [data, setData] = useState(null);
 
   useEffect(() => {
     if (!url) return;
-
-    let finalUrl = url;
-    if (isGeoRisk) {
-        // Optimized query for Camarines Norte extent to prevent server timeouts and handle different agency schemas
-        const baseUrl = url.endsWith('/') ? url : url + '/';
-        // We use a spatial intersection (BBOX) as a primary filter because it's more reliable than "PROVINCE" column across different agencies
-        finalUrl = `${baseUrl}query?geometry=122.3,13.8,123.1,14.5&geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects&inSR=4326&outFields=*&returnGeometry=true&f=geojson`;
-    }
-
-    fetchGeoJSON(finalUrl)
+    fetchGeoJSON(url)
       .then(res => setData(res))
-      .catch(err => console.error(`Layer Error (${layerName}):`, err));
-  }, [url, layerName, isGeoRisk]);
+      .catch(err => console.error(`GeoJSON Error (${layerName}):`, err));
+  }, [url, layerName]);
 
   if (!data || !data.features) return null;
 
-  const onEachFeature = (feature, layer) => {
-    if (feature.properties) {
-      const p = feature.properties;
-      const title = p.name || p.title || p.Municipality || p.Hazard || layerName;
-      layer.bindPopup(`
-        <div class="text-xs font-sans">
-          <p class="font-bold border-b pb-1 mb-1">${title}</p>
-          <p class="capitalize"><b>Risk Level:</b> ${(p.susceptibility || p.Susceptibil || 'High').toString().replace('_', ' ')}</p>
-        </div>
-      `);
-    }
-  };
-
-  const getStyle = (feature) => {
-    const p = feature.properties || {};
-    // Match common susceptibility field names from MGB and PHIVOLCS
-    const s = (p.susceptibility || p.Susceptibil || p.RiskLevel || p.Descriptio || p.GRIDCODE || '').toString().toLowerCase();
-    let fillColor = color || '#3B82F6';
-
-    if (s.includes('very') || s === '4' || s.includes('critical') || s.includes('v_high')) fillColor = '#ef4444'; // Red
-    else if (s.includes('high') || s === '3') fillColor = '#f97316'; // Orange
-    else if (s.includes('mod') || s === '2' || s.includes('med')) fillColor = '#eab308'; // Yellow
-    else if (s.includes('low') || s === '1') fillColor = '#22c55e'; // Green
-
-    return { fillColor, weight: 1, opacity: 1, color: 'white', fillOpacity: 0.65 };
-  };
-
-  return <GeoJSON key={url} data={data} style={getStyle} onEachFeature={onEachFeature} />;
+  return (
+    <GeoJSON
+      key={url}
+      data={data}
+      style={() => ({
+        fillColor: color || '#3B82F6',
+        weight: 1,
+        opacity: 1,
+        color: 'white',
+        fillOpacity: 0.5
+      })}
+    />
+  );
 }
-
-const facilityColors = {
-  hospital: '#EF4444', school: '#3B82F6', evacuation_center: '#22C55E',
-  fire_station: '#F97316', police_station: '#6366F1', barangay_hall: '#8B5CF6',
-  government_building: '#14B8A6', bridge: '#F59E0B',
-};
 
 const getFacilityIcon = (type, isAtRisk) => {
   const iconMap = {
@@ -101,7 +98,7 @@ const getFacilityIcon = (type, isAtRisk) => {
     government_building: Landmark, bridge: ArrowLeftRight,
   };
   const IconComponent = iconMap[type] || Building2;
-  const color = isAtRisk ? '#ef4444' : (facilityColors[type] || '#6B7280');
+  const color = isAtRisk ? '#ef4444' : '#3B82F6';
   const iconHtml = renderToStaticMarkup(
     <div style={{
       backgroundColor: 'white', borderRadius: '50%', padding: '5px', border: `2px solid ${color}`,
@@ -120,7 +117,7 @@ const getFacilityIcon = (type, isAtRisk) => {
 
 export default function GISMap({
   facilities = [], alerts = [], incidents = [],
-  layers = [], extraMarkers = [], highlightedIds = [],
+  layers = [], highlightedIds = [],
   className, height = '500px', flyTo = null, flyToZoom = 13
 }) {
   const facilityMarkers = facilities.filter(f => f.latitude && f.longitude);
@@ -137,13 +134,13 @@ export default function GISMap({
 
         <LayersControl position="topright">
           <LayersControl.BaseLayer checked name="Street Map">
-            <TileLayer attribution='&copy; OSM | GeoRisk v2.1' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <TileLayer attribution='&copy; OSM | GeoRisk v3.0 (Dynamic)' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           </LayersControl.BaseLayer>
           <LayersControl.BaseLayer name="Satellite">
             <TileLayer attribution='&copy; Esri' url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
           </LayersControl.BaseLayer>
 
-          {/* Primary Data Group */}
+          {/* SYSTEM DATA GROUP */}
           <LayersControl.Overlay checked name="[SYSTEM] Facilities">
             <LayerGroup>
               {facilityMarkers.map(f => (
@@ -164,16 +161,16 @@ export default function GISMap({
              </LayerGroup>
           </LayersControl.Overlay>
 
-          {/* GeoRisk Overlays */}
+          {/* GEORISK PROFESSIONAL LAYERS (Dynamic Map Images) */}
           {GEORISK_CONFIG.map((layer) => (
             <LayersControl.Overlay key={layer.id} name={layer.name}>
-              <RemoteGeoJSON url={layer.url} layerName={layer.name} isGeoRisk={true} />
+              <ArcGISDynamicLayer url={layer.url} />
             </LayersControl.Overlay>
           ))}
 
-          {/* Local Uploaded Layers */}
+          {/* USER UPLOADED LAYERS (GeoJSON) */}
           {activeLayers.map((layer) => (
-            <LayersControl.Overlay key={`l-${layer.id}`} name={`USER: ${layer.name}`}>
+            <LayersControl.Overlay key={`u-${layer.id}`} name={`USER: ${layer.name}`}>
               <RemoteGeoJSON url={layer.file_url} layerName={layer.name} />
             </LayersControl.Overlay>
           ))}
