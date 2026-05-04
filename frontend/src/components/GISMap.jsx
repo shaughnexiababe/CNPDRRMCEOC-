@@ -45,7 +45,10 @@ function RemoteGeoJSON({ url, color, layerName, isGeoRisk = false }) {
 
     let finalUrl = url;
     if (isGeoRisk) {
-        finalUrl = `${url.endsWith('/') ? url : url + '/'}query?where=1%3D1&outFields=*&returnGeometry=true&f=geojson`;
+        // Optimized query for Camarines Norte extent to prevent server timeouts and handle different agency schemas
+        const baseUrl = url.endsWith('/') ? url : url + '/';
+        // We use a spatial intersection (BBOX) as a primary filter because it's more reliable than "PROVINCE" column across different agencies
+        finalUrl = `${baseUrl}query?geometry=122.3,13.8,123.1,14.5&geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects&inSR=4326&outFields=*&returnGeometry=true&f=geojson`;
     }
 
     fetchGeoJSON(finalUrl)
@@ -70,15 +73,16 @@ function RemoteGeoJSON({ url, color, layerName, isGeoRisk = false }) {
 
   const getStyle = (feature) => {
     const p = feature.properties || {};
-    const s = (p.susceptibility || p.Susceptibil || p.RiskLevel || '').toString().toLowerCase();
+    // Match common susceptibility field names from MGB and PHIVOLCS
+    const s = (p.susceptibility || p.Susceptibil || p.RiskLevel || p.Descriptio || p.GRIDCODE || '').toString().toLowerCase();
     let fillColor = color || '#3B82F6';
 
-    if (s.includes('very') || s === '4') fillColor = '#ef4444';
-    else if (s.includes('high') || s === '3') fillColor = '#f97316';
-    else if (s.includes('mod') || s === '2') fillColor = '#eab308';
-    else if (s.includes('low') || s === '1') fillColor = '#22c55e';
+    if (s.includes('very') || s === '4' || s.includes('critical') || s.includes('v_high')) fillColor = '#ef4444'; // Red
+    else if (s.includes('high') || s === '3') fillColor = '#f97316'; // Orange
+    else if (s.includes('mod') || s === '2' || s.includes('med')) fillColor = '#eab308'; // Yellow
+    else if (s.includes('low') || s === '1') fillColor = '#22c55e'; // Green
 
-    return { fillColor, weight: 1, opacity: 1, color: 'white', fillOpacity: 0.6 };
+    return { fillColor, weight: 1, opacity: 1, color: 'white', fillOpacity: 0.65 };
   };
 
   return <GeoJSON key={url} data={data} style={getStyle} onEachFeature={onEachFeature} />;
@@ -133,7 +137,7 @@ export default function GISMap({
 
         <LayersControl position="topright">
           <LayersControl.BaseLayer checked name="Street Map">
-            <TileLayer attribution='&copy; OSM | GeoRisk v2.0' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <TileLayer attribution='&copy; OSM | GeoRisk v2.1' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           </LayersControl.BaseLayer>
           <LayersControl.BaseLayer name="Satellite">
             <TileLayer attribution='&copy; Esri' url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
