@@ -51,7 +51,10 @@ export default function RiskAnalytics() {
 
       const layersWithGeoJSON = await Promise.all(activeHazardLayers.map(async (l) => {
         try {
-          let finalUrl = l.file_url.trim();
+          const urlToUse = l.file_url || l.url;
+          if (!urlToUse) throw new Error("No URL defined for layer");
+
+          let finalUrl = urlToUse.trim();
 
           // Standardize local paths
           if (finalUrl.startsWith('/data/')) {
