@@ -80,7 +80,7 @@ export default function BoyKalasagChat() {
         <Card className="w-80 md:w-96 h-[500px] flex flex-col shadow-2xl border-2 border-red-600 animate-in slide-in-from-bottom-4">
           <div className="bg-red-600 p-3 text-white flex items-center justify-between rounded-t-lg">
             <div className="flex items-center gap-2">
-              <Shield className="w-5 h-5 fill-white text-red-600" />
+              <Smile className="w-5 h-5 text-white" />
               <span className="font-bold tracking-tight">Boy Kalasag AI</span>
             </div>
             <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-red-700" onClick={() => setIsOpen(false)}>
