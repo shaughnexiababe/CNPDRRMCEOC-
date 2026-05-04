@@ -136,7 +136,7 @@ export default function GISMap({
 
         <LayersControl position="topright">
           <LayersControl.BaseLayer checked name="Street Map">
-            <TileLayer attribution='&copy; OSM | GeoRisk v4.0 (Authoritative)' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <TileLayer attribution='&copy; OSM | GeoRisk v4.1' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           </LayersControl.BaseLayer>
           <LayersControl.BaseLayer name="Satellite">
             <TileLayer attribution='&copy; Esri' url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
@@ -144,14 +144,16 @@ export default function GISMap({
 
           {/* GeoRisk Professional Layers */}
           {GEORISK_LAYERS.map((layer) => (
-            <LayersControl.Overlay key={layer.id} name={layer.name}>
-              <ArcGISLayer url={layer.url} name={layer.name} />
+            <LayersControl.Overlay key={layer.id} name={`NATIONAL: ${layer.name.replace('GeoRisk: ', '')}`}>
+              <LayerGroup>
+                <ArcGISLayer url={layer.url} name={layer.name} />
+              </LayerGroup>
             </LayersControl.Overlay>
           ))}
 
           {/* User Uploaded Custom Layers */}
           {activeLayers.map((layer) => (
-            <LayersControl.Overlay key={`u-${layer.id}`} name={`Local: ${layer.name}`}>
+            <LayersControl.Overlay key={`u-${layer.id}`} name={`USER: ${layer.name}`}>
               <RemoteGeoJSON url={layer.file_url} layerName={layer.name} />
             </LayersControl.Overlay>
           ))}
