@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Shield, Send, X, Smile } from 'lucide-react';
-// Corrected import: Removed non-existent FaceSmile
+import { Bot, Send, X, Smile, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -31,7 +30,7 @@ export default function BoyKalasagChat() {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
     }
-  }, [messages]);
+  }, [messages, isOpen]);
 
   const sendMessage = async () => {
     if (!inputText.trim() || isLoading) return;
@@ -42,16 +41,16 @@ export default function BoyKalasagChat() {
     setIsLoading(true);
 
     try {
-      // Get context
-      const incidents = await cnpdrrmceoc.incidents.list().catch(() => []);
-      const incidentContext = incidents.length > 0
-        ? `${incidents.length} active incidents reported.`
-        : "No active incidents reported.";
+      // Get context from SDK
+      const activeIncidents = await cnpdrrmceoc.entities.IncidentReport.list('-created_date', 5).catch(() => []);
+      const context = activeIncidents.length > 0
+        ? `There are ${activeIncidents.length} recent incidents in the province.`
+        : "No recent incidents reported.";
 
       const prompt = `
         ${SYSTEM_INSTRUCTION}
-        Context: ${incidentContext}
-        User: ${userText}
+        Current Context: ${context}
+        User says: ${userText}
       `;
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`, {
@@ -63,7 +62,7 @@ export default function BoyKalasagChat() {
       });
 
       const data = await response.json();
-      const botText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Pasensya na, may error sa pag-process.";
+      const botText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Pasensya na, may problema sa pagsagot ko ngayon.";
 
       setMessages(prev => [...prev, { text: botText, isUser: false }]);
     } catch (error) {
@@ -75,12 +74,15 @@ export default function BoyKalasagChat() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div className="fixed bottom-6 right-6 z-[9999]">
       {isOpen ? (
-        <Card className="w-80 md:w-96 h-[500px] flex flex-col shadow-2xl border-2 border-red-600 animate-in slide-in-from-bottom-4">
-          <div className="bg-red-600 p-3 text-white flex items-center justify-between rounded-t-lg">
+        <Card className="w-[350px] md:w-96 h-[500px] flex flex-col shadow-2xl border-2 border-red-600 overflow-hidden bg-white animate-in slide-in-from-bottom-4">
+          {/* Header */}
+          <div className="bg-red-600 p-3 text-white flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Smile className="w-5 h-5 text-white" />
+              <div className="bg-white rounded-full p-1">
+                <Smile className="w-4 h-4 text-red-600" />
+              </div>
               <span className="font-bold tracking-tight">Boy Kalasag AI</span>
             </div>
             <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-red-700" onClick={() => setIsOpen(false)}>
@@ -88,15 +90,16 @@ export default function BoyKalasagChat() {
             </Button>
           </div>
 
-          <ScrollArea className="flex-1 p-4 bg-slate-50" viewportRef={scrollRef}>
+          {/* Chat Messages */}
+          <ScrollArea className="flex-1 p-4 bg-slate-50">
             <div className="space-y-4">
               {messages.map((msg, i) => (
                 <div key={i} className={cn("flex", msg.isUser ? "justify-end" : "justify-start")}>
                   <div className={cn(
-                    "max-w-[80%] p-3 rounded-2xl text-sm shadow-sm",
+                    "max-w-[85%] p-3 rounded-2xl text-sm shadow-sm",
                     msg.isUser
                       ? "bg-orange-500 text-white rounded-tr-none"
-                      : "bg-white text-slate-800 border rounded-tl-none"
+                      : "bg-white text-slate-800 border border-slate-200 rounded-tl-none"
                   )}>
                     {msg.text.replace("[TRIGGER_SOS]", "").replace("[NAVIGATE_MAP]", "").trim()}
                   </div>
@@ -104,23 +107,31 @@ export default function BoyKalasagChat() {
               ))}
               {isLoading && (
                 <div className="flex justify-start">
-                  <div className="bg-white p-3 rounded-2xl text-sm border rounded-tl-none animate-pulse">
+                  <div className="bg-white p-3 rounded-2xl text-sm border border-slate-200 rounded-tl-none animate-pulse">
                     Nagiisip si Boy Kalasag...
                   </div>
                 </div>
               )}
+              <div ref={scrollRef} />
             </div>
           </ScrollArea>
 
-          <div className="p-3 border-t bg-white rounded-b-lg flex gap-2">
+          {/* Input Area */}
+          <div className="p-3 border-t bg-white flex gap-2">
             <Input
               placeholder="Ask about hazards..."
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-              className="flex-1"
+              className="flex-1 rounded-full h-10"
+              disabled={isLoading}
             />
-            <Button size="icon" className="bg-orange-600 hover:bg-orange-700 text-white" onClick={sendMessage} disabled={isLoading}>
+            <Button
+              size="icon"
+              className="bg-orange-600 hover:bg-orange-700 text-white rounded-full h-10 w-10 shrink-0"
+              onClick={sendMessage}
+              disabled={isLoading || !inputText.trim()}
+            >
               <Send className="w-4 h-4" />
             </Button>
           </div>
