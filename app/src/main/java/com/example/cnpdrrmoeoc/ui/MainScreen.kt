@@ -22,7 +22,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import com.example.cnpdrrmoeoc.ui.components.BoyKalasagFabOverlay
+import com.example.cnpdrrmoeoc.ui.components.BantayFabOverlay
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -131,9 +131,9 @@ fun MainScreen(viewModel: GisViewModel = hiltViewModel()) {
         val currentRoute = navBackStackEntry?.destination?.route
         
         if (currentRoute != "report") {
-            BoyKalasagFabOverlay(
+            BantayFabOverlay(
                 gisViewModel = viewModel,
-                onNavigate = { route ->
+                onNavigate = { route: String ->
                     navController.navigate(route)
                     val index = navigationItems.indexOfFirst { it.route == route }
                     if (index != -1) selectedIndex = index

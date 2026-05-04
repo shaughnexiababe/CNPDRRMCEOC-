@@ -17,30 +17,40 @@ class ChatViewModel @Inject constructor() : ViewModel() {
     val uiState: StateFlow<ChatUiState> = _uiState
 
     private val _messages = MutableStateFlow<List<ChatMessage>>(
-        listOf(ChatMessage("Dios Marhay na aldaw! I am Boy Kalasag, your PDRRMO AI defender. How can I help you today?", false))
+        listOf(ChatMessage("Dios Marhay na aldaw! I am Bantay, your CNPDRRMEOC AI wingman. How can I help you protect Camarines Norte today?", false))
     )
     val messages: StateFlow<List<ChatMessage>> = _messages
 
     private val _isChatOpen = MutableStateFlow(false)
     val isChatOpen: StateFlow<Boolean> = _isChatOpen
 
+    private val _botAction = MutableStateFlow<BotAction?>(null)
+    val botAction: StateFlow<BotAction?> = _botAction
+
     fun setChatOpen(open: Boolean) {
         _isChatOpen.value = open
     }
 
+    fun clearAction() {
+        _botAction.value = null
+    }
+
     private val generativeModel = GenerativeModel(
         modelName = "gemini-1.5-flash",
-        apiKey = "AIzaSyD0yM6OogXKluE1esMrPR7ciKMBPJcXCl0"
+        apiKey = "AIzaSyD0yM6OogXKluE1esMrPR7ciKMBPJcXCl0" // Placeholder Key
     )
 
     private val systemInstruction = """
-        You are "Boy Kalasag", the AI defender and superhero wingman for the CNPDRRMEOC app. 
-        Your mission is to protect the citizens of Camarines Norte by providing weather updates, disaster protocols, and emergency contacts. 
-        "Kalasag" means shield, so act as their shield against disasters.
-        Be brave, brief, use Bicolano-friendly Tagalog, and always prioritize safety.
+        You are "Bantay", the AI wingman for the CNPDRRMEOC app. 
+        Help citizens of Camarines Norte with weather updates, disaster protocols, and emergency contacts. 
+        Be brief, use Bicolano-friendly Tagalog, and prioritize safety.
         
-        If the user says "SOS" or is in immediate danger, you MUST include the keyword "[TRIGGER_SOS]" in your response.
-        If the user wants to see the map, include "[NAVIGATE_MAP]".
+        CRITICAL INSTRUCTIONS:
+        1. If the user is in immediate danger or needs emergency help, you MUST include the keyword "[TRIGGER_SOS]" in your text.
+        2. If the user wants to see the map or check hazards spatially, include "[NAVIGATE_MAP]".
+        3. If the user asks for alerts or notifications, include "[NAVIGATE_ALERTS]".
+        
+        Context will be provided for location and active incidents. Use it to give specific advice.
     """.trimIndent()
 
     fun sendMessage(userText: String, locationContext: String, activeIncidents: String) {
@@ -53,16 +63,25 @@ class ChatViewModel @Inject constructor() : ViewModel() {
                 val response = generativeModel.generateContent(
                     content {
                         text(systemInstruction)
-                        text("Context: User at $locationContext. Active incidents: $activeIncidents")
-                        text("User: $userText")
+                        text("User Location: $locationContext")
+                        text("Active Incidents in Province: $activeIncidents")
+                        text("User Input: $userText")
                     }
                 )
                 
-                val botText = response.text ?: "Pasensya na, may error sa pag-process."
+                val botText = response.text ?: "Pasensya na, may error sa pag-process. Mag-ingat pirmi!"
+                
+                // Process actions from bot response
+                when {
+                    botText.contains("[TRIGGER_SOS]") -> _botAction.value = BotAction.OpenSOS
+                    botText.contains("[NAVIGATE_MAP]") -> _botAction.value = BotAction.NavigateToMap
+                    botText.contains("[NAVIGATE_ALERTS]") -> _botAction.value = BotAction.NavigateToAlerts
+                }
+
                 _messages.value = _messages.value + ChatMessage(botText, isUser = false)
                 _uiState.value = ChatUiState.Idle
             } catch (e: Exception) {
-                _messages.value = _messages.value + ChatMessage("Error: ${e.localizedMessage}", false)
+                _messages.value = _messages.value + ChatMessage("Maugma! May sadit na problema sa signal ko. Mag-ingat kamo!", false)
                 _uiState.value = ChatUiState.Idle
             }
         }
@@ -75,4 +94,10 @@ sealed class ChatUiState {
     object Idle : ChatUiState()
     object Loading : ChatUiState()
     data class Error(val message: String) : ChatUiState()
+}
+
+sealed class BotAction {
+    object OpenSOS : BotAction()
+    object NavigateToMap : BotAction()
+    object NavigateToAlerts : BotAction()
 }

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, LayersControl, CircleMarker, useMap, GeoJSON, LayerGroup } from 'react-leaflet';
 import L from 'leaflet';
-import * as esri from 'esri-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
@@ -13,8 +12,11 @@ import { MAP_CENTER, MAP_ZOOM } from '@/lib/constants';
 import { fetchGeoJSON } from '@/lib/spatial';
 import { Badge } from '@/components/ui/badge';
 
-// Authoritative Data Configuration (Professional MapServer Endpoints)
-const GEORISK_CONFIG = [
+/**
+ * GeoRiskPH Authoritative Hazard Layers
+ * Uses Dynamic Rendering (esri-leaflet) for high performance
+ */
+const GEORISK_LAYERS = [
   { id: 'gr-flood', name: 'GeoRisk: Flood Susceptibility', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/MGBPublic/Flood/MapServer" },
   { id: 'gr-landslide', name: 'GeoRisk: Rain-Induced Landslide', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/MGBPublic/RainInducedLandslide/MapServer" },
   { id: 'gr-faults', name: 'GeoRisk: Active Faults', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/ActiveFault/MapServer" },
@@ -22,7 +24,7 @@ const GEORISK_CONFIG = [
   { id: 'gr-tsunami', name: 'GeoRisk: Tsunami Hazard', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/Tsunami/MapServer" }
 ];
 
-// FIX: Ensure Leaflet icons don't break on build
+// FIX: Standard Leaflet Icon fix
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -30,38 +32,37 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-function FlyToLocation({ coords, zoom = 13 }) {
-  const map = useMap();
-  useEffect(() => {
-    if (coords) map.flyTo(coords, zoom, { duration: 1.2 });
-  }, [coords, zoom, map]);
-  return null;
-}
-
 /**
- * Component to load ArcGIS Map Services using Dynamic Rendering (Images)
- * This is high-performance and avoids loading large GeoJSON files.
+ * Internal component to handle ArcGIS Dynamic Rendering
  */
-function ArcGISDynamicLayer({ url, opacity = 0.65, name }) {
+function ArcGISLayer({ url, name }) {
   const map = useMap();
+
   useEffect(() => {
     if (!url) return;
+
+    // Check if L.esri is available (loaded via script in index.html)
+    const esri = window.L?.esri || null;
+    if (!esri) {
+        console.warn("esri-leaflet not loaded yet. Retrying...");
+        return;
+    }
+
     try {
       const layer = esri.dynamicMapLayer({
         url: url,
-        opacity: opacity,
+        opacity: 0.65,
         useCors: true
-      });
-
-      layer.addTo(map);
+      }).addTo(map);
 
       return () => {
         if (layer) map.removeLayer(layer);
       };
     } catch (err) {
-      console.error(`ArcGIS Layer Error (${name}):`, err);
+      console.error(`Error loading ArcGIS layer ${name}:`, err);
     }
-  }, [url, map, opacity, name]);
+  }, [url, map, name]);
+
   return null;
 }
 
@@ -72,7 +73,7 @@ function RemoteGeoJSON({ url, color, layerName }) {
     if (!url) return;
     fetchGeoJSON(url)
       .then(res => setData(res))
-      .catch(err => console.error(`GeoJSON Error (${layerName}):`, err));
+      .catch(err => console.error(`GeoJSON Load Error (${layerName}):`, err));
   }, [url, layerName]);
 
   if (!data || !data.features) return null;
@@ -135,14 +136,28 @@ export default function GISMap({
 
         <LayersControl position="topright">
           <LayersControl.BaseLayer checked name="Street Map">
-            <TileLayer attribution='&copy; OSM | GeoRisk v3.0 (Dynamic)' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <TileLayer attribution='&copy; OSM | GeoRisk v4.0 (Authoritative)' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           </LayersControl.BaseLayer>
           <LayersControl.BaseLayer name="Satellite">
             <TileLayer attribution='&copy; Esri' url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
           </LayersControl.BaseLayer>
 
-          {/* SYSTEM DATA GROUP */}
-          <LayersControl.Overlay checked name="[SYSTEM] Facilities">
+          {/* GeoRisk Professional Layers */}
+          {GEORISK_LAYERS.map((layer) => (
+            <LayersControl.Overlay key={layer.id} name={layer.name}>
+              <ArcGISLayer url={layer.url} name={layer.name} />
+            </LayersControl.Overlay>
+          ))}
+
+          {/* User Uploaded Custom Layers */}
+          {activeLayers.map((layer) => (
+            <LayersControl.Overlay key={`u-${layer.id}`} name={`Local: ${layer.name}`}>
+              <RemoteGeoJSON url={layer.file_url} layerName={layer.name} />
+            </LayersControl.Overlay>
+          ))}
+
+          {/* Operational Overlays */}
+          <LayersControl.Overlay checked name="Facilities & Assets">
             <LayerGroup>
               {facilityMarkers.map(f => (
                 <Marker key={`f-${f.id}`} position={[f.latitude, f.longitude]} icon={getFacilityIcon(f.type, highlightedIds.includes(f.id))}>
@@ -152,7 +167,7 @@ export default function GISMap({
             </LayerGroup>
           </LayersControl.Overlay>
 
-          <LayersControl.Overlay checked name="[SYSTEM] Active Alerts">
+          <LayersControl.Overlay checked name="Active Alerts">
              <LayerGroup>
                 {alertMarkers.map(a => (
                     <CircleMarker key={`a-${a.id}`} center={[a.latitude, a.longitude]} radius={10} fillColor="#ef4444" fillOpacity={0.5} color="#ef4444">
@@ -161,20 +176,6 @@ export default function GISMap({
                 ))}
              </LayerGroup>
           </LayersControl.Overlay>
-
-          {/* GEORISK PROFESSIONAL LAYERS (Dynamic Map Images) */}
-          {GEORISK_CONFIG.map((layer) => (
-            <LayersControl.Overlay key={layer.id} name={layer.name}>
-              <ArcGISDynamicLayer url={layer.url} />
-            </LayersControl.Overlay>
-          ))}
-
-          {/* USER UPLOADED LAYERS (GeoJSON) */}
-          {activeLayers.map((layer) => (
-            <LayersControl.Overlay key={`u-${layer.id}`} name={`USER: ${layer.name}`}>
-              <RemoteGeoJSON url={layer.file_url} layerName={layer.name} />
-            </LayersControl.Overlay>
-          ))}
         </LayersControl>
       </MapContainer>
     </div>
