@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Shield, Send, X, FaceSmile, MessageCircle } from 'lucide-react';
+import { Shield, Send, X, Smile } from 'lucide-react';
+// Corrected import: Removed non-existent FaceSmile
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
