@@ -42,7 +42,7 @@ function FlyToLocation({ coords, zoom = 13 }) {
  * Component to load ArcGIS Map Services using Dynamic Rendering (Images)
  * This is high-performance and avoids loading large GeoJSON files.
  */
-function ArcGISDynamicLayer({ url, opacity = 0.65 }) {
+function ArcGISDynamicLayer({ url, opacity = 0.65, name }) {
   const map = useMap();
   useEffect(() => {
     if (!url) return;
@@ -50,17 +50,18 @@ function ArcGISDynamicLayer({ url, opacity = 0.65 }) {
       const layer = esri.dynamicMapLayer({
         url: url,
         opacity: opacity,
-        useCors: true,
-        f: 'image'
-      }).addTo(map);
+        useCors: true
+      });
+
+      layer.addTo(map);
 
       return () => {
         if (layer) map.removeLayer(layer);
       };
     } catch (err) {
-      console.error("ArcGIS Dynamic Layer Error:", err);
+      console.error(`ArcGIS Layer Error (${name}):`, err);
     }
-  }, [url, map, opacity]);
+  }, [url, map, opacity, name]);
   return null;
 }
 
