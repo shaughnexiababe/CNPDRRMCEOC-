@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, LayersControl, CircleMarker, useMap, GeoJSON, LayerGroup } from 'react-leaflet';
 import L from 'leaflet';
+import * as esri from 'esri-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
@@ -40,13 +41,6 @@ function ArcGISLayer({ url, name }) {
 
   useEffect(() => {
     if (!url) return;
-
-    // Check if L.esri is available (loaded via script in index.html)
-    const esri = window.L?.esri || null;
-    if (!esri) {
-        console.warn("esri-leaflet not loaded yet. Retrying...");
-        return;
-    }
 
     try {
       const layer = esri.dynamicMapLayer({
