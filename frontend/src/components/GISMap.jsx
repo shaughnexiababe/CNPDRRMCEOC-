@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, LayersControl, CircleMarker, useMap, GeoJSON, LayerGroup, useLeafletContext } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, LayersControl, CircleMarker, useMap, GeoJSON, LayerGroup } from 'react-leaflet';
 import L from 'leaflet';
 import * as esri from 'esri-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -35,31 +35,32 @@ L.Icon.Default.mergeOptions({
 
 /**
  * Internal component to handle ArcGIS Dynamic Rendering
- * Synchronized with LayersControl using Leaflet context
  */
 function ArcGISLayer({ url, name }) {
-  const context = useLeafletContext();
-  const container = context.layerContainer || context.map;
+  const map = useMap();
 
   useEffect(() => {
-    if (!url || !container) return;
+    if (!url || !map) return;
 
+    let layer;
     try {
-      const layer = esri.dynamicMapLayer({
+      layer = esri.dynamicMapLayer({
         url: url,
         opacity: 0.65,
         useCors: true
       });
 
-      container.addLayer(layer);
+      layer.addTo(map);
 
       return () => {
-        if (layer) container.removeLayer(layer);
+        if (layer) {
+          map.removeLayer(layer);
+        }
       };
     } catch (err) {
       console.error(`Error loading ArcGIS layer ${name}:`, err);
     }
-  }, [url, container, name]);
+  }, [url, map, name]);
 
   return null;
 }
@@ -134,7 +135,7 @@ export default function GISMap({
 
         <LayersControl position="topright">
           <LayersControl.BaseLayer checked name="Street Map">
-            <TileLayer attribution='&copy; OSM | GeoRisk v5.1' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <TileLayer attribution='&copy; OSM | GeoRisk v5.2' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           </LayersControl.BaseLayer>
           <LayersControl.BaseLayer name="Satellite">
             <TileLayer attribution='&copy; Esri' url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
