@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, LayersControl, CircleMarker, useMap, GeoJSON, LayerGroup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, LayersControl, CircleMarker, useMap, GeoJSON, LayerGroup, useLeafletContext } from 'react-leaflet';
 import L from 'leaflet';
 import * as esri from 'esri-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -35,27 +35,31 @@ L.Icon.Default.mergeOptions({
 
 /**
  * Internal component to handle ArcGIS Dynamic Rendering
+ * Synchronized with LayersControl using Leaflet context
  */
 function ArcGISLayer({ url, name }) {
-  const map = useMap();
+  const context = useLeafletContext();
+  const container = context.layerContainer || context.map;
 
   useEffect(() => {
-    if (!url) return;
+    if (!url || !container) return;
 
     try {
       const layer = esri.dynamicMapLayer({
         url: url,
         opacity: 0.65,
         useCors: true
-      }).addTo(map);
+      });
+
+      container.addLayer(layer);
 
       return () => {
-        if (layer) map.removeLayer(layer);
+        if (layer) container.removeLayer(layer);
       };
     } catch (err) {
       console.error(`Error loading ArcGIS layer ${name}:`, err);
     }
-  }, [url, map, name]);
+  }, [url, container, name]);
 
   return null;
 }
@@ -130,7 +134,7 @@ export default function GISMap({
 
         <LayersControl position="topright">
           <LayersControl.BaseLayer checked name="Street Map">
-            <TileLayer attribution='&copy; OSM | GeoRisk v4.2 (Secure)' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <TileLayer attribution='&copy; OSM | GeoRisk v4.4' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           </LayersControl.BaseLayer>
           <LayersControl.BaseLayer name="Satellite">
             <TileLayer attribution='&copy; Esri' url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
@@ -139,9 +143,7 @@ export default function GISMap({
           {/* GeoRisk Professional Layers */}
           {GEORISK_LAYERS.map((layer) => (
             <LayersControl.Overlay key={layer.id} name={`NATIONAL: ${layer.name.replace('GeoRisk: ', '')}`}>
-              <LayerGroup>
-                <ArcGISLayer url={layer.url} name={layer.name} />
-              </LayerGroup>
+              <ArcGISLayer url={layer.url} name={layer.name} />
             </LayersControl.Overlay>
           ))}
 
