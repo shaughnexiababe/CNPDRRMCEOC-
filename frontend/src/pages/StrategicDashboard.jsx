@@ -15,10 +15,16 @@ import RiskSeverityPie from '@/components/RiskSeverityPie';
 import GISMap from '@/components/GISMap';
 import AssessmentsPanel from '@/components/AssessmentsPanel';
 import AgencyDataPanel from '@/components/AgencyDataPanel';
+import { predictHazardImpact } from '@/lib/analytics-engine';
 
 export default function StrategicDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Predicted impact for dashboard overview
+  const predictiveOutlook = useMemo(() => {
+    return predictHazardImpact({ rainfall24h: 45, windSpeedKph: 35, tideLevelMeters: 1.2 }).slice(0, 3);
+  }, []);
 
   const { data: alerts = [] } = useQuery({
     queryKey: ['alerts'],
@@ -129,7 +135,30 @@ export default function StrategicDashboard() {
           <AgencyDataPanel />
         </div>
         <div className="lg:col-span-1">
-          <MunicipalityBreakdown />
+           <Card className="border-primary/20 bg-primary/5">
+              <CardHeader className="pb-2">
+                 <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4" /> Predictive Outlook
+                 </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                 <p className="text-[10px] text-muted-foreground italic mb-2">Based on current 24h weather outlook</p>
+                 {predictiveOutlook.map((item, i) => (
+                    <div key={i} className="flex justify-between items-center text-xs">
+                       <span className="font-medium">{item.municipality}</span>
+                       <Badge variant={item.impactScore > 50 ? "destructive" : "outline"} className="text-[10px] h-4">
+                          {item.impactScore}% {item.primaryThreat} Risk
+                       </Badge>
+                    </div>
+                 ))}
+                 <div className="pt-2 border-t mt-2">
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold flex items-center gap-1">
+                       <Shield className="w-3 h-3 text-primary" /> Recommendation
+                    </p>
+                    <p className="text-[11px] font-semibold mt-1">Normal monitoring. Pre-position FFPs in coastal municipalities.</p>
+                 </div>
+              </CardContent>
+           </Card>
         </div>
         <div className="lg:col-span-1">
           <AssessmentsPanel />

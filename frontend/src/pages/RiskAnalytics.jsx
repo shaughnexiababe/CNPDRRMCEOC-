@@ -10,12 +10,32 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { MUNICIPALITIES, SEVERITY_LEVELS, MUNICIPALITY_DATA, MUNICIPALITY_COORDINATES, MUNICIPALITY_BBOXES, HAZARD_TYPES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { fetchGeoJSON, getSpatialExposure, estimateReliefRequirements, generateHazardDensityPoints, GEORISK_LAYERS_CONFIG } from '@/lib/spatial';
+import { predictHazardImpact, prescribeEarlyActions, ANALYTICS_DATA_SOURCES } from '@/lib/analytics-engine';
 import * as turf from '@turf/turf';
 
 export default function RiskAnalytics() {
   const [selectedMunicipality, setSelectedMunicipality] = useState('Whole Province');
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisResults, setAnalysisResults] = useState(null);
+
+  // Predictive Simulation State
+  const [simulation, setSimulation] = useState({
+    rainfall24h: 50,
+    windSpeedKph: 60,
+    tideLevelMeters: 1.5,
+    results: null,
+    recommendations: []
+  });
+
+  const handleSimulate = () => {
+    const results = predictHazardImpact({
+      rainfall24h: simulation.rainfall24h,
+      windSpeedKph: simulation.windSpeedKph,
+      tideLevelMeters: simulation.tideLevelMeters
+    });
+    const recommendations = prescribeEarlyActions(results);
+    setSimulation(prev => ({ ...prev, results, recommendations }));
+  };
 
   // Colors for charts
   const COLORS = ['#3B82F6', '#A855F7', '#06B6D4', '#EF4444', '#F59E0B', '#6366F1', '#22C55E', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#64748B'];
@@ -235,6 +255,68 @@ export default function RiskAnalytics() {
             Run Agency-Based Analysis
           </Button>
         </div>
+      </div>
+
+      {/* NEW: Predictive & Prescriptive Simulator */}
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 pb-4">
+        <Card className="xl:col-span-1 border-primary/40 bg-primary/5">
+          <CardHeader className="pb-2">
+             <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <Activity className="w-4 h-4" /> Scenario Simulator
+             </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase font-bold text-muted-foreground">Rainfall (24h mm)</label>
+              <input
+                type="range" min="0" max="300"
+                value={simulation.rainfall24h}
+                onChange={e => setSimulation({...simulation, rainfall24h: parseInt(e.target.value)})}
+                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary"
+              />
+              <div className="flex justify-between text-[10px]"><span>0mm</span><span className="font-bold text-primary">{simulation.rainfall24h}mm</span><span>300mm</span></div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase font-bold text-muted-foreground">Wind Speed (kph)</label>
+              <input
+                type="range" min="0" max="250"
+                value={simulation.windSpeedKph}
+                onChange={e => setSimulation({...simulation, windSpeedKph: parseInt(e.target.value)})}
+                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-orange-500"
+              />
+              <div className="flex justify-between text-[10px]"><span>0kph</span><span className="font-bold text-orange-500">{simulation.windSpeedKph}kph</span><span>250kph</span></div>
+            </div>
+            <Button onClick={handleSimulate} className="w-full h-8 text-xs bg-slate-900" size="sm">Run Predictive Simulation</Button>
+          </CardContent>
+        </Card>
+
+        <Card className="xl:col-span-3 border-orange-500/30">
+          <CardHeader className="pb-2">
+             <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-orange-600" /> Prescriptive Action Plan
+             </CardTitle>
+          </CardHeader>
+          <CardContent className="h-[140px] overflow-y-auto custom-scrollbar">
+            {simulation.recommendations.length > 0 ? (
+              <div className="space-y-2">
+                {simulation.recommendations.map((rec, i) => (
+                  <div key={i} className="flex items-start gap-3 p-2 rounded bg-orange-50 border border-orange-100">
+                    <Badge variant={rec.priority === 'critical' ? 'destructive' : 'secondary'} className="text-[9px] mt-0.5">{rec.municipality}</Badge>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-bold text-slate-900">{rec.recommendation}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5 italic">Resources: {rec.resources}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-muted-foreground text-xs italic gap-2">
+                <Shield className="w-8 h-8 opacity-20" />
+                Adjust parameters and run simulation to generate early action recommendations.
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {analysisResults ? (
