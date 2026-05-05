@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 import { subscribeToRealtimeIncidents } from '@/lib/firebase';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import StatCard from '@/components/StatCard';
 import AlertsPanel from '@/components/AlertsPanel';
 import MunicipalityBreakdown from '@/components/MunicipalityBreakdown';

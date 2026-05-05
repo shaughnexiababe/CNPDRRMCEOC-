@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Activity, BarChart3, Loader2, ShieldAlert, CheckCircle2, Users, Map as MapIcon, Package } from 'lucide-react';
+import { Activity, BarChart3, Loader2, ShieldAlert, CheckCircle2, Users, Map as MapIcon, Package, Shield, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, PieChart, Pie, Cell } from 'recharts';
 import { MUNICIPALITIES, SEVERITY_LEVELS, MUNICIPALITY_DATA, MUNICIPALITY_COORDINATES, MUNICIPALITY_BBOXES, HAZARD_TYPES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
