@@ -86,7 +86,7 @@ class GisViewModel @Inject constructor(
                 val combinedExp = (floodExp + landslideExp).toInt()
                 
                 totalExposed += combinedExp
-                breakdown.add(MuniExposure(muni.name, combinedExp, combinedExp.toFloat()))
+                breakdown.add(MuniExposure(muni.name, combinedExp, combinedExp.toFloat() / (muni.population / 4.5f)))
             }
 
             _analyticsData.value = AnalyticsResult(

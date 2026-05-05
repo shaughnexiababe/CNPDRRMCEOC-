@@ -208,6 +208,7 @@ fun LoginScreen(onLogin: (String) -> Unit, onRegister: (String, String) -> Unit)
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlertsView(viewModel: GisViewModel = hiltViewModel()) {
     val alertsData by viewModel.latestAlerts.collectAsState()
@@ -372,10 +373,10 @@ fun OperationalView(viewModel: GisViewModel = hiltViewModel()) {
                             org.maplibre.android.style.expressions.Expression.match(
                                 org.maplibre.android.style.expressions.Expression.get("susceptibility"),
                                 org.maplibre.android.style.expressions.Expression.literal("#ef4444"), // default red
-                                org.maplibre.android.style.expressions.Expression.stop("very_high", "#ef4444"),
-                                org.maplibre.android.style.expressions.Expression.stop("high", "#f97316"),
-                                org.maplibre.android.style.expressions.Expression.stop("moderate", "#eab308"),
-                                org.maplibre.android.style.expressions.Expression.stop("low", "#22c55e")
+                                org.maplibre.android.style.expressions.Expression.literal("very_high"), org.maplibre.android.style.expressions.Expression.literal("#ef4444"),
+                                org.maplibre.android.style.expressions.Expression.literal("high"), org.maplibre.android.style.expressions.Expression.literal("#f97316"),
+                                org.maplibre.android.style.expressions.Expression.literal("moderate"), org.maplibre.android.style.expressions.Expression.literal("#eab308"),
+                                org.maplibre.android.style.expressions.Expression.literal("low"), org.maplibre.android.style.expressions.Expression.literal("#22c55e")
                             )
                         ),
                         PropertyFactory.fillOpacity(0.5f),
