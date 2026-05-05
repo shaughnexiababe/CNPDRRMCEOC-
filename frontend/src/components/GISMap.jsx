@@ -135,7 +135,7 @@ export default function GISMap({
 
         <LayersControl position="topright">
           <LayersControl.BaseLayer checked name="Street Map">
-            <TileLayer attribution='&copy; OSM | GeoRisk v5.2' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <TileLayer attribution='&copy; OSM | GeoRisk v5.3' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           </LayersControl.BaseLayer>
           <LayersControl.BaseLayer name="Satellite">
             <TileLayer attribution='&copy; Esri' url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
@@ -144,7 +144,9 @@ export default function GISMap({
           {/* GeoRisk Professional Layers */}
           {GEORISK_LAYERS.map((layer) => (
             <LayersControl.Overlay key={layer.id} name={`NATIONAL: ${layer.name.replace('GeoRisk: ', '')}`}>
-              <ArcGISLayer url={layer.url} name={layer.name} />
+              <LayerGroup>
+                <ArcGISLayer url={layer.url} name={layer.name} />
+              </LayerGroup>
             </LayersControl.Overlay>
           ))}
 
