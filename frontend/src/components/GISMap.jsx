@@ -37,47 +37,60 @@ L.Icon.Default.mergeOptions({
 
 /**
  * Internal component to handle ArcGIS Dynamic Rendering.
- * Optimized with targeted filtering and a "Force Purge" mechanism.
+ * Improved with instance tracking and a comprehensive "Clean-on-Unmount" strategy.
  */
 function ArcGISLayer({ url, name }) {
   const map = useMap();
+  const layerRef = React.useRef(null);
 
   useEffect(() => {
     if (!url || !map) return;
 
+    // Provincial Filter values common in Philippine Agency DBs
+    const provFilter = "PROVINCE = 'CAMARINES NORTE' OR Province = 'Camarines Norte' OR PROV_NAME = 'CAMARINES NORTE'";
+
     const layerOptions = {
       url: url,
-      opacity: 0.7,
+      opacity: 0.65,
       useCors: true
     };
 
-    // Apply Provincial Filter ONLY to MGB layers (Flood/Landslide)
-    // PHIVOLCS/PAGASA layers often lack a 'PROVINCE' field and will fail if filtered.
+    // Apply filters to MGB (Flood/Landslide) to keep map clean
+    // We apply it to layers 0, 1, and 2 to ensure it hits the data regardless of index
     if (url.includes('MGBPublic')) {
-       layerOptions.layerDefs = {
-         0: "PROVINCE = 'CAMARINES NORTE'"
-       };
+      layerOptions.layerDefs = {
+        0: provFilter,
+        1: provFilter,
+        2: provFilter
+      };
     }
 
-    const layer = esri.dynamicMapLayer(layerOptions);
+    // Create and add the layer
+    const layerInstance = esri.dynamicMapLayer(layerOptions);
+    layerRef.current = layerInstance;
+    layerInstance.addTo(map);
 
-    layer.addTo(map);
-
+    // Cleanup logic: Runs when checkbox is unchecked
     return () => {
-      if (layer) {
+      if (layerRef.current) {
+        const instance = layerRef.current;
+        map.removeLayer(instance);
+
+        // Comprehensive DOM Purge: Removes all image fragments associated with this service URL
+        // This solves the "Ghost Layer" / Stuck Color issue
         try {
-          map.removeLayer(layer);
-          // Purge any lingering image overlays from this specific agency URL
-          const mapContainer = map.getContainer();
-          const images = mapContainer.getElementsByClassName('leaflet-image-layer');
-          for (let i = images.length - 1; i >= 0; i--) {
-            if (images[i].src && images[i].src.includes(url)) {
-              images[i].remove();
+          const container = map.getContainer();
+          const layers = container.querySelectorAll('.leaflet-image-layer');
+          layers.forEach(img => {
+            if (img.src && img.src.includes(url.split('/rest/services/')[1])) {
+              img.remove();
             }
-          }
+          });
         } catch (e) {
-          console.warn("Cleanup issue for", name, ":", e.message);
+          console.warn("Manual cleanup for", name, "encountered an issue.");
         }
+
+        layerRef.current = null;
       }
     };
   }, [url, map, name]);
