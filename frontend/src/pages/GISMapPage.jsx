@@ -154,7 +154,10 @@ export default function GISMapPage() {
                 </div>
               ))}
               {Object.keys(facilityTypeCounts).length === 0 && (
-                <p className="text-xs text-muted-foreground">No facilities mapped</p>
+                <div className="bg-muted/50 p-2 rounded border border-dashed text-center">
+                  <p className="text-[10px] text-muted-foreground">No critical facilities found in registry for this area.</p>
+                  <p className="text-[9px] text-muted-foreground/60 italic mt-1">Check "Data Layers" to import GeoJSON datasets.</p>
+                </div>
               )}
             </div>
           </CardContent>

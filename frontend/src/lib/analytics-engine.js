@@ -22,18 +22,20 @@ export const predictHazardImpact = (forecast) => {
 
     // 1. Flood Prediction (Rainfall + Baseline Susceptibility)
     // Threshold: 100mm/24h triggers "High" risk in susceptible areas
+    // Synchronized with Android PDRRMO Decision Support logic (0.45 multiplier for Very High)
     const rainFactor = Math.min(rainfall24h / 150, 1.2);
-    const floodSuscMult = { 'very_high': 1.0, 'high': 0.8, 'medium': 0.5, 'low': 0.2, 'none': 0 }[baseline.hazards.flood] || 0.5;
-    floodProb = rainFactor * floodSuscMult * 100;
+    const floodSuscMult = { 'very_high': 0.45, 'high': 0.30, 'medium': 0.15, 'low': 0.05, 'none': 0 }[baseline.hazards.flood] || 0;
+    floodProb = rainFactor * (floodSuscMult / 0.45) * 100;
 
     // 2. Landslide Prediction (Heavy Rain + Slope/Baseline)
-    landslideProb = rainFactor * ({ 'very_high': 1.0, 'high': 0.8, 'medium': 0.4, 'low': 0.1, 'none': 0 }[baseline.hazards.landslide] || 0.4) * 100;
+    const landslideSuscMult = { 'very_high': 0.45, 'high': 0.30, 'medium': 0.15, 'low': 0.05, 'none': 0 }[baseline.hazards.landslide] || 0;
+    landslideProb = rainFactor * (landslideSuscMult / 0.45) * 100;
 
     // 3. Storm Surge (Wind Speed + Tide + Coastal Baseline)
     const windFactor = Math.min(windSpeedKph / 200, 1.0);
     const tideFactor = Math.min(tideLevelMeters / 3.0, 1.0);
-    const surgeSusc = baseline.hazards.storm_surge !== 'none' ? 1.0 : 0;
-    surgeProb = (windFactor + tideFactor) / 2 * surgeSusc * 100;
+    const surgeSusc = baseline.hazards.storm_surge !== 'none' ? 0.45 : 0;
+    surgeProb = (windFactor + tideFactor) / 2 * (surgeSusc / 0.45) * 100;
 
     const maxRisk = Math.max(floodProb, landslideProb, surgeProb);
     let severity = 'low';
@@ -41,12 +43,15 @@ export const predictHazardImpact = (forecast) => {
     else if (maxRisk > 60) severity = 'high';
     else if (maxRisk > 30) severity = 'moderate';
 
+    // Synchronized Exposure calculation: Households = (Pop / 4.5) * Susceptibility Multiplier
+    const hhExposed = Math.round((baseline.population / 4.5) * Math.max(floodSuscMult, landslideSuscMult));
+
     return {
       municipality: muniName,
       impactScore: Math.round(maxRisk),
       severity,
       primaryThreat: floodProb >= landslideProb && floodProb >= surgeProb ? 'Flood' : (landslideProb >= surgeProb ? 'Landslide' : 'Storm Surge'),
-      exposedPopulation: Math.round(baseline.population * (maxRisk / 100) * 0.4) // PDC Baseline: ~40% of pop in specific risk areas
+      exposedPopulation: Math.round(hhExposed * 4.5)
     };
   }).filter(p => p !== null);
 

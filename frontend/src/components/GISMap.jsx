@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, LayersControl, CircleMarker, useMap, GeoJSON, LayerGroup } from 'react-leaflet';
 import L from 'leaflet';
 import * as esri from 'esri-leaflet';
@@ -6,7 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
   Hospital, GraduationCap, Home, Flame,
-  Shield, Building2, Landmark, ArrowLeftRight
+  Shield, Building2, Landmark, ArrowLeftRight, Info
 } from 'lucide-react';
 
 import { MAP_CENTER, MAP_ZOOM } from '@/lib/constants';
@@ -34,33 +34,40 @@ L.Icon.Default.mergeOptions({
 });
 
 /**
- * Internal component to handle ArcGIS Dynamic Rendering
+ * Internal component to handle ArcGIS Dynamic Rendering.
+ * Improved to handle layer lifecycle correctly within LayersControl.
  */
 function ArcGISLayer({ url, name }) {
   const map = useMap();
+  const [layer, setLayer] = useState(null);
 
   useEffect(() => {
     if (!url || !map) return;
 
-    let layer;
+    // Remove existing layer if URL changes
+    if (layer) {
+      map.removeLayer(layer);
+    }
+
     try {
-      layer = esri.dynamicMapLayer({
+      const newLayer = esri.dynamicMapLayer({
         url: url,
         opacity: 0.65,
         useCors: true
       });
 
-      layer.addTo(map);
+      newLayer.addTo(map);
+      setLayer(newLayer);
 
       return () => {
-        if (layer) {
-          map.removeLayer(layer);
+        if (newLayer) {
+          map.removeLayer(newLayer);
         }
       };
     } catch (err) {
       console.error(`Error loading ArcGIS layer ${name}:`, err);
     }
-  }, [url, map, name]);
+  }, [url, map]); // Removed name from dependencies to avoid redundant re-renders
 
   return null;
 }
@@ -144,9 +151,11 @@ export default function GISMap({
           {/* GeoRisk Professional Layers */}
           {GEORISK_LAYERS.map((layer) => (
             <LayersControl.Overlay key={layer.id} name={`NATIONAL: ${layer.name.replace('GeoRisk: ', '')}`}>
-              <LayerGroup>
-                <ArcGISLayer url={layer.url} name={layer.name} />
-              </LayerGroup>
+               {/*
+                 FIX: Removed LayerGroup wrapper which can sometimes interfere with
+                 the lifecycle of manual side-effect layers in certain Leaflet versions.
+               */}
+               <ArcGISLayer url={layer.url} name={layer.name} />
             </LayersControl.Overlay>
           ))}
 
