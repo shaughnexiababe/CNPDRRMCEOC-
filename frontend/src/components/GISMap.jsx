@@ -37,7 +37,7 @@ L.Icon.Default.mergeOptions({
 
 /**
  * Internal component to handle ArcGIS Dynamic Rendering.
- * Improved with a "Force Purge" mechanism and Provincial Filtering for clean visualization.
+ * Optimized with targeted filtering and a "Force Purge" mechanism.
  */
 function ArcGISLayer({ url, name }) {
   const map = useMap();
@@ -45,21 +45,17 @@ function ArcGISLayer({ url, name }) {
   useEffect(() => {
     if (!url || !map) return;
 
-    // Provincial Filtering logic to resolve "noisy" spatial visualization
-    // Filters agency layers to only show Camarines Norte data.
-    // Using a broader 'LIKE' match to handle varying database string formats.
     const layerOptions = {
       url: url,
-      opacity: 0.65,
-      useCors: true,
-      layers: [0] // Target the primary hazard data layer
+      opacity: 0.7,
+      useCors: true
     };
 
-    // Apply layer definitions for MGB and PHIVOLCS sources
-    // We use a looser filter to ensure it catches 'Camarines Norte' in different case/space formats
-    if (url.includes('MGBPublic') || url.includes('PHIVOLCS') || url.includes('PAGASAPublic')) {
+    // Apply Provincial Filter ONLY to MGB layers (Flood/Landslide)
+    // PHIVOLCS/PAGASA layers often lack a 'PROVINCE' field and will fail if filtered.
+    if (url.includes('MGBPublic')) {
        layerOptions.layerDefs = {
-         0: "PROVINCE LIKE 'CAMARINES NORTE%' OR Province LIKE 'Camarines Norte%' OR PROV_NAME LIKE 'CAMARINES NORTE%'"
+         0: "PROVINCE = 'CAMARINES NORTE'"
        };
     }
 
@@ -71,16 +67,16 @@ function ArcGISLayer({ url, name }) {
       if (layer) {
         try {
           map.removeLayer(layer);
-          // Force cleanup: Search and destroy any lingering image overlays from this agency URL
+          // Purge any lingering image overlays from this specific agency URL
           const mapContainer = map.getContainer();
           const images = mapContainer.getElementsByClassName('leaflet-image-layer');
           for (let i = images.length - 1; i >= 0; i--) {
-             if (images[i].src && images[i].src.includes(url)) {
-               images[i].remove();
-             }
+            if (images[i].src && images[i].src.includes(url)) {
+              images[i].remove();
+            }
           }
         } catch (e) {
-          console.warn("Cleanup issue:", e.message);
+          console.warn("Cleanup issue for", name, ":", e.message);
         }
       }
     };
