@@ -35,39 +35,32 @@ L.Icon.Default.mergeOptions({
 
 /**
  * Internal component to handle ArcGIS Dynamic Rendering.
- * Improved to handle layer lifecycle correctly within LayersControl.
+ * Improved with a "Force Purge" mechanism to prevent ghost layers.
  */
 function ArcGISLayer({ url, name }) {
   const map = useMap();
-  const [layer, setLayer] = useState(null);
 
   useEffect(() => {
     if (!url || !map) return;
 
-    // Remove existing layer if URL changes
-    if (layer) {
-      map.removeLayer(layer);
-    }
+    const layer = esri.dynamicMapLayer({
+      url: url,
+      opacity: 0.65,
+      useCors: true
+    });
 
-    try {
-      const newLayer = esri.dynamicMapLayer({
-        url: url,
-        opacity: 0.65,
-        useCors: true
-      });
+    layer.addTo(map);
 
-      newLayer.addTo(map);
-      setLayer(newLayer);
-
-      return () => {
-        if (newLayer) {
-          map.removeLayer(newLayer);
-        }
-      };
-    } catch (err) {
-      console.error(`Error loading ArcGIS layer ${name}:`, err);
-    }
-  }, [url, map]); // Removed name from dependencies to avoid redundant re-renders
+    return () => {
+      if (layer) {
+        map.removeLayer(layer);
+        // Force cleanup: Some esri-leaflet versions don't trigger a full DOM purge immediately
+        const mapContainer = map.getContainer();
+        const esriImages = mapContainer.querySelectorAll(`.leaflet-image-layer[src*="${url}"]`);
+        esriImages.forEach(img => img.remove());
+      }
+    };
+  }, [url, map, name]);
 
   return null;
 }
