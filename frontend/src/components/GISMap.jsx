@@ -135,6 +135,19 @@ const getFacilityIcon = (type, isAtRisk) => {
   });
 };
 
+/**
+ * Helper component to handle map flying
+ */
+function FlyToLocation({ coords, zoom }) {
+  const map = useMap();
+  useEffect(() => {
+    if (coords) {
+      map.flyTo(coords, zoom, { duration: 1.5 });
+    }
+  }, [coords, zoom, map]);
+  return null;
+}
+
 export default function GISMap({
   facilities = [], alerts = [], incidents = [],
   layers = [], highlightedIds = [],
@@ -163,11 +176,9 @@ export default function GISMap({
           {/* GeoRisk Professional Layers */}
           {GEORISK_LAYERS.map((layer) => (
             <LayersControl.Overlay key={layer.id} name={`NATIONAL: ${layer.name.replace('GeoRisk: ', '')}`}>
-               {/*
-                 FIX: Removed LayerGroup wrapper which can sometimes interfere with
-                 the lifecycle of manual side-effect layers in certain Leaflet versions.
-               */}
-               <ArcGISLayer url={layer.url} name={layer.name} />
+              <LayerGroup>
+                <ArcGISLayer url={layer.url} name={layer.name} />
+              </LayerGroup>
             </LayersControl.Overlay>
           ))}
 
