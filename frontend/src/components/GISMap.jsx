@@ -46,16 +46,21 @@ function ArcGISLayer({ url, name }) {
     if (!url || !map) return;
 
     // Provincial Filtering logic to resolve "noisy" spatial visualization
-    // Filters agency layers to only show Camarines Norte data
+    // Filters agency layers to only show Camarines Norte data.
+    // Using a broader 'LIKE' match to handle varying database string formats.
     const layerOptions = {
       url: url,
-      opacity: 0.55,
-      useCors: true
+      opacity: 0.65,
+      useCors: true,
+      layers: [0] // Target the primary hazard data layer
     };
 
     // Apply layer definitions for MGB and PHIVOLCS sources
-    if (url.includes('MGBPublic') || url.includes('PHIVOLCS')) {
-       layerOptions.layerDefs = { 0: "PROVINCE = 'CAMARINES NORTE'" };
+    // We use a looser filter to ensure it catches 'Camarines Norte' in different case/space formats
+    if (url.includes('MGBPublic') || url.includes('PHIVOLCS') || url.includes('PAGASAPublic')) {
+       layerOptions.layerDefs = {
+         0: "PROVINCE LIKE 'CAMARINES NORTE%' OR Province LIKE 'Camarines Norte%' OR PROV_NAME LIKE 'CAMARINES NORTE%'"
+       };
     }
 
     const layer = esri.dynamicMapLayer(layerOptions);
@@ -64,18 +69,18 @@ function ArcGISLayer({ url, name }) {
 
     return () => {
       if (layer) {
-        map.removeLayer(layer);
-        // Force cleanup: Search and destroy any lingering image overlays from this agency URL
         try {
+          map.removeLayer(layer);
+          // Force cleanup: Search and destroy any lingering image overlays from this agency URL
           const mapContainer = map.getContainer();
           const images = mapContainer.getElementsByClassName('leaflet-image-layer');
           for (let i = images.length - 1; i >= 0; i--) {
-            if (images[i].src && images[i].src.includes(url)) {
-              images[i].remove();
-            }
+             if (images[i].src && images[i].src.includes(url)) {
+               images[i].remove();
+             }
           }
         } catch (e) {
-          console.warn("Manual layer cleanup encountered minor issue:", e.message);
+          console.warn("Cleanup issue:", e.message);
         }
       }
     };
