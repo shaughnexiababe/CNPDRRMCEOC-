@@ -37,7 +37,7 @@ L.Icon.Default.mergeOptions({
 
 /**
  * Internal component to handle ArcGIS Dynamic Rendering.
- * Bulletproof implementation for toggling and provincial visibility.
+ * Optimized with Layer-Aware Filtering and robust cleanup.
  */
 function ArcGISLayer({ url, name }) {
   const map = useMap();
@@ -45,26 +45,28 @@ function ArcGISLayer({ url, name }) {
   useEffect(() => {
     if (!url || !map) return;
 
-    // Create the ArcGIS Dynamic Layer
-    const layer = esri.dynamicMapLayer({
+    const layerOptions = {
       url: url,
-      opacity: 0.65,
-      useCors: true,
-      // Attempt to filter for Camarines Norte to keep visualization clean
-      layerDefs: {
-        0: "PROVINCE = 'CAMARINES NORTE' OR PROV_NAME = 'CAMARINES NORTE' OR Province = 'Camarines Norte'"
-      }
-    });
+      opacity: 0.7,
+      useCors: true
+    };
 
+    // Apply Provincial Filter ONLY to MGB layers that support it
+    // PHIVOLCS and PAGASA layers lack 'PROVINCE' columns and will error if filtered.
+    if (url.includes('MGBPublic')) {
+      layerOptions.layerDefs = {
+        0: "PROVINCE = 'CAMARINES NORTE' OR Province = 'Camarines Norte'"
+      };
+    }
+
+    const layer = esri.dynamicMapLayer(layerOptions);
     layer.addTo(map);
 
-    // Cleanup: Bulletproof removal of the layer and its image fragments
     return () => {
       if (layer) {
         map.removeLayer(layer);
 
-        // Final Purge: Some browsers/Leaflet versions retain image overlays in the DOM
-        // We find any image layer with a source containing our unique agency URL path and delete it.
+        // Surgical DOM Cleanup to prevent ghosting
         try {
           const mapContainer = map.getContainer();
           const images = mapContainer.getElementsByClassName('leaflet-image-layer');
@@ -76,7 +78,7 @@ function ArcGISLayer({ url, name }) {
             }
           }
         } catch (e) {
-          console.warn("Manual cleanup encountered an issue.");
+          console.warn("Manual cleanup error for", name);
         }
       }
     };
