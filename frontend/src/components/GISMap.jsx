@@ -22,7 +22,9 @@ const GEORISK_LAYERS = [
   { id: 'gr-landslide', name: 'GeoRisk: Rain-Induced Landslide', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/MGBPublic/RainInducedLandslide/MapServer" },
   { id: 'gr-faults', name: 'GeoRisk: Active Faults', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/ActiveFault/MapServer" },
   { id: 'gr-shaking', name: 'GeoRisk: Ground Shaking', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/GroundShaking/MapServer" },
-  { id: 'gr-tsunami', name: 'GeoRisk: Tsunami Hazard', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/Tsunami/MapServer" }
+  { id: 'gr-tsunami', name: 'GeoRisk: Tsunami Hazard', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/Tsunami/MapServer" },
+  { id: 'gr-liquefaction', name: 'GeoRisk: Liquefaction', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/Liquefaction/MapServer" },
+  { id: 'gr-surge', name: 'GeoRisk: Storm Surge', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PAGASAPublic/StormSurge/MapServer" }
 ];
 
 // FIX: Standard Leaflet Icon fix
@@ -35,7 +37,7 @@ L.Icon.Default.mergeOptions({
 
 /**
  * Internal component to handle ArcGIS Dynamic Rendering.
- * Improved with a "Force Purge" mechanism to prevent ghost layers.
+ * Improved with a "Force Purge" mechanism and Provincial Filtering for clean visualization.
  */
 function ArcGISLayer({ url, name }) {
   const map = useMap();
@@ -43,21 +45,38 @@ function ArcGISLayer({ url, name }) {
   useEffect(() => {
     if (!url || !map) return;
 
-    const layer = esri.dynamicMapLayer({
+    // Provincial Filtering logic to resolve "noisy" spatial visualization
+    // Filters agency layers to only show Camarines Norte data
+    const layerOptions = {
       url: url,
-      opacity: 0.65,
+      opacity: 0.55,
       useCors: true
-    });
+    };
+
+    // Apply layer definitions for MGB and PHIVOLCS sources
+    if (url.includes('MGBPublic') || url.includes('PHIVOLCS')) {
+       layerOptions.layerDefs = { 0: "PROVINCE = 'CAMARINES NORTE'" };
+    }
+
+    const layer = esri.dynamicMapLayer(layerOptions);
 
     layer.addTo(map);
 
     return () => {
       if (layer) {
         map.removeLayer(layer);
-        // Force cleanup: Some esri-leaflet versions don't trigger a full DOM purge immediately
-        const mapContainer = map.getContainer();
-        const esriImages = mapContainer.querySelectorAll(`.leaflet-image-layer[src*="${url}"]`);
-        esriImages.forEach(img => img.remove());
+        // Force cleanup: Search and destroy any lingering image overlays from this agency URL
+        try {
+          const mapContainer = map.getContainer();
+          const images = mapContainer.getElementsByClassName('leaflet-image-layer');
+          for (let i = images.length - 1; i >= 0; i--) {
+            if (images[i].src && images[i].src.includes(url)) {
+              images[i].remove();
+            }
+          }
+        } catch (e) {
+          console.warn("Manual layer cleanup encountered minor issue:", e.message);
+        }
       }
     };
   }, [url, map, name]);
