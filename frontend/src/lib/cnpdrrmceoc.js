@@ -1,14 +1,5 @@
-import { createClient } from '@shaughnexiababe/sdk';
-import { appParams } from '@/lib/app-params';
+import { createClient } from './sdk-shim';
 
-const { appId, token, functionsVersion, appBaseUrl } = appParams;
-
-//Create a client with authentication required
-export const cnpdrrmceoc = createClient({
-  appId,
-  token,
-  functionsVersion,
-  serverUrl: '',
-  requiresAuth: false,
-  appBaseUrl
-});
+// Create a unified client instance for the entire app
+// This now uses the Firebase-backed SDK
+export const cnpdrrmceoc = createClient();

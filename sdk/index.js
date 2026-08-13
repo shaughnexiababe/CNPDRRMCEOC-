@@ -1,6 +1,34 @@
-// This is the core SDK logic.
+import { initializeApp } from 'firebase/app';
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signOut
+} from 'firebase/auth';
+import {
+  getFirestore,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  addDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  runTransaction,
+  serverTimestamp
+} from 'firebase/firestore';
 import axios from 'axios';
 
+/**
+ * Legacy Axios client creator for backward compatibility with
+ * certain app-level checks (e.g. public settings)
+ */
 export const createAxiosClient = ({ baseURL, headers, token }) => {
   const instance = axios.create({
     baseURL,
@@ -18,29 +46,117 @@ export const createAxiosClient = ({ baseURL, headers, token }) => {
   return instance;
 };
 
-export const createClient = ({ appId, token, appBaseUrl }) => {
+export const createClient = ({ firebaseConfig }) => {
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  const getEntityCollection = (name) => {
+    // Map common entity names to Firestore collection names
+    const mapping = {
+      'User': 'users',
+      'Facility': 'facilities',
+      'Unit': 'units',
+      'Incident': 'incidents',
+      'Assignment': 'assignments',
+      'HazardAlert': 'hazard_alerts'
+    };
+    return mapping[name] || name.toLowerCase() + 's';
+  };
+
   const entityHandler = {
     get: (target, entityName) => {
+      const collectionName = getEntityCollection(entityName);
+      const colRef = collection(db, collectionName);
+
       return {
-        list: async (order, limit) => {
-          const storedItems = localStorage.getItem(`pdrrmo_cache_${entityName}`);
-          return storedItems ? JSON.parse(storedItems) : [];
+        /**
+         * List items from Firestore
+         * Supports both array-based filters and legacy order/limit args
+         */
+        list: async (filtersOrOrder, limitVal) => {
+          let q = query(colRef);
+
+          if (Array.isArray(filtersOrOrder)) {
+            // New filter-based API: filtersOrOrder = [{ field, op, value }]
+            filtersOrOrder.forEach(f => {
+              q = query(q, where(f.field, f.op || '==', f.value));
+            });
+          } else if (typeof filtersOrOrder === 'string') {
+            // Legacy order/limit API
+            const orderField = filtersOrOrder.startsWith('-') ? filtersOrOrder.substring(1) : filtersOrOrder;
+            const direction = filtersOrOrder.startsWith('-') ? 'desc' : 'asc';
+            q = query(q, orderBy(orderField, direction));
+          }
+
+          if (limitVal) {
+            q = query(q, limit(limitVal));
+          }
+
+          const snapshot = await getDocs(q);
+          return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         },
-        get: async (id) => ({ id }),
+        get: async (id) => {
+          const docRef = doc(db, collectionName, id);
+          const docSnap = await getDoc(docRef);
+          return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null;
+        },
         create: async (data) => {
-           const id = Math.random().toString(36).substr(2, 9);
-           const item = { id, ...data, created_date: new Date().toISOString() };
-           return item;
+          const docRef = await addDoc(colRef, {
+            ...data,
+            created_at: serverTimestamp(),
+            updated_at: serverTimestamp()
+          });
+          return { id: docRef.id, ...data };
         },
-        createMany: async (dataArray) => {
-           return dataArray.map(data => ({
-             id: Math.random().toString(36).substr(2, 9),
-             ...data,
-             created_date: new Date().toISOString()
-           }));
+        update: async (id, data) => {
+          const docRef = doc(db, collectionName, id);
+          await updateDoc(docRef, {
+            ...data,
+            updated_at: serverTimestamp()
+          });
+          return { id, ...data };
         },
-        update: async (id, data) => ({ id, ...data }),
-        delete: async (id) => ({ id }),
+        delete: async (id) => {
+          const docRef = doc(db, collectionName, id);
+          await deleteDoc(docRef);
+          return { id };
+        },
+        // Specialized Dispatch Action
+        dispatch: async (incidentId, { unitId, etaMinutes, notes }) => {
+          if (entityName !== 'Incident') throw new Error('Dispatch only available for Incidents');
+
+          return await runTransaction(db, async (transaction) => {
+            const unitRef = doc(db, 'units', unitId);
+            const incidentRef = doc(db, 'incidents', incidentId);
+            const assignmentRef = doc(collection(db, 'assignments'));
+
+            const unitSnap = await transaction.get(unitRef);
+            if (!unitSnap.exists()) throw new Error("Unit not found");
+            if (unitSnap.data().status !== 'available') {
+              throw new Error(`Unit is ${unitSnap.data().status} and cannot be dispatched.`);
+            }
+
+            // Update Unit status
+            transaction.update(unitRef, { status: 'dispatched', updated_at: serverTimestamp() });
+
+            // Update Incident status
+            transaction.update(incidentRef, { status: 'dispatched', updated_at: serverTimestamp() });
+
+            // Create Assignment
+            const assignmentData = {
+              incident_id: incidentId,
+              unit_id: unitId,
+              status: 'assigned',
+              eta_minutes: etaMinutes,
+              notes: notes || '',
+              assigned_at: serverTimestamp()
+            };
+            transaction.set(assignmentRef, assignmentData);
+
+            return { id: assignmentRef.id, ...assignmentData };
+          });
+        }
       };
     }
   };
@@ -48,56 +164,48 @@ export const createClient = ({ appId, token, appBaseUrl }) => {
   return {
     auth: {
       me: async () => {
-        const storedUser = localStorage.getItem('pdrrmo_user');
-        return storedUser ? JSON.parse(storedUser) : null;
+        return new Promise((resolve) => {
+          const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            unsubscribe();
+            if (user) {
+              const userDoc = await getDoc(doc(db, 'users', user.uid));
+              resolve(userDoc.exists() ? { id: user.uid, ...userDoc.data() } : { id: user.uid, email: user.email });
+            } else {
+              resolve(null);
+            }
+          });
+        });
       },
       login: async (email, password) => {
-        // Bootstrap: Specific email automatically becomes admin
-        let role = 'citizen';
-        if (email.includes('admin') || email === 'i.am.sam052408@gmail.com') role = 'admin';
-        if (email.includes('eoc')) role = 'eoc_personnel';
-
-        const user = {
-          id: email === 'i.am.sam052408@gmail.com' ? 'super-admin' : 'cit-1',
-          name: email === 'i.am.sam052408@gmail.com' ? 'Sam (Admin)' : 'User',
-          role,
-          email
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        return {
+          user: userDoc.exists() ? { id: user.uid, ...userDoc.data() } : { id: user.uid, email: user.email },
+          token: await user.getIdToken()
         };
-
-        localStorage.setItem('pdrrmo_user', JSON.stringify(user));
-        localStorage.setItem('pdrrmo_token', 'token-' + user.role);
-        return { user, token: 'token-' + user.role };
       },
       register: async (data) => {
-        // Bootstrap: New registration with this email automatically gets Admin role
-        const role = data.email === 'i.am.sam052408@gmail.com' ? 'admin' : 'citizen';
-        const user = { id: Math.random().toString(36).substr(2, 9), ...data, role };
-        localStorage.setItem('pdrrmo_user', JSON.stringify(user));
-        return user;
+        const { email, password, full_name, ...rest } = data;
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        const userData = {
+          email,
+          full_name,
+          role: 'citizen',
+          created_at: serverTimestamp(),
+          ...rest
+        };
+
+        await setDoc(doc(db, 'users', user.uid), userData);
+        return { id: user.uid, ...userData };
       },
-      logout: (url) => {
-        localStorage.removeItem('pdrrmo_user');
-        localStorage.removeItem('pdrrmo_token');
+      logout: async (url) => {
+        await signOut(auth);
         if (url) window.location.href = url; else window.location.reload();
-      },
-      redirectToLogin: (url) => {
-        window.location.href = '/login';
       }
     },
-    entities: new Proxy({}, entityHandler),
-    integrations: {
-      Core: {
-        UploadFile: async ({ file }) => {
-          // Use readAsDataURL to handle Unicode characters and large files correctly
-          return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-              resolve({ file_url: e.target.result });
-            };
-            reader.readAsDataURL(file);
-          });
-        }
-      }
-    }
+    entities: new Proxy({}, entityHandler)
   };
 };
