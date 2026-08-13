@@ -1,3 +1,4 @@
+// Version: 1.0.1 - Firebase Pivot
 import { createClient as createRealClient, createAxiosClient } from '../../../sdk/index.js';
 
 // Firebase configuration from environment variables
