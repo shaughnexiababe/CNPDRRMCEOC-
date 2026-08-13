@@ -30,7 +30,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.cnpdrrmoeoc.R
 import com.example.cnpdrrmoeoc.data.AgencyAlert
-import com.example.cnpdrrmoeoc.data.UserRole
 import com.example.cnpdrrmoeoc.ui.components.MapViewContainer
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.style.layers.FillLayer
@@ -42,11 +41,14 @@ import org.maplibre.android.style.sources.GeoJsonSource
 fun MainScreen(viewModel: GisViewModel = hiltViewModel()) {
     val navController = rememberNavController()
     val user by viewModel.currentUser.collectAsState()
+    val activeAlerts by viewModel.activeAlerts.collectAsState()
     
     if (user == null) {
         LoginScreen(
-            onLogin = { email -> viewModel.login(email) },
-            onRegister = { name, email -> viewModel.register(name, email) }
+            onLogin = { email, password -> viewModel.login(email, password) },
+            onRegister = { name, email, password, municipality -> 
+                viewModel.register(name, email, password, municipality) 
+            }
         )
         return
     }
@@ -54,15 +56,21 @@ fun MainScreen(viewModel: GisViewModel = hiltViewModel()) {
     val role = user!!.role
     val navigationItems = remember(role) {
         mutableListOf<NavigationItem>().apply {
-            if (role == UserRole.CITIZEN) {
-                add(NavigationItem("Alerts", "alerts", Icons.Default.Notifications))
-                add(NavigationItem("Safety Map", "safetymap", Icons.Default.LocationOn))
+            add(NavigationItem("Alerts", "alerts", Icons.Default.Notifications))
+            add(NavigationItem("Safety Map", "safetymap", Icons.Default.LocationOn))
+            
+            if (role == "citizen") {
                 add(NavigationItem("Report", "report", Icons.Default.Edit))
+                add(NavigationItem("Evac Centers", "evac", Icons.Default.Home))
             } else {
-                add(NavigationItem("Analytics", "analytics", Icons.Default.Info))
                 add(NavigationItem("Operations", "operations", Icons.Default.Build))
                 add(NavigationItem("Field", "report", Icons.Default.Edit))
-                add(NavigationItem("Alerts", "alerts", Icons.Default.Notifications))
+                add(NavigationItem("Analytics", "analytics", Icons.Default.Info))
+                add(NavigationItem("Notes", "notes", Icons.Default.Edit))
+                
+                if (role == "admin") {
+                    add(NavigationItem("Users", "users", Icons.Default.Person))
+                }
             }
         }
     }
@@ -82,8 +90,8 @@ fun MainScreen(viewModel: GisViewModel = hiltViewModel()) {
                             )
                             Text(
                                 when(role) {
-                                    UserRole.ADMIN -> "PDRRMO Command Center"
-                                    UserRole.EOC_PERSONNEL -> "EOC Staff Portal"
+                                    "admin" -> "PDRRMO Command Center"
+                                    "eoc_personnel" -> "EOC Staff Portal"
                                     else -> "CN-PDRRMO Public"
                                 }, 
                                 style = MaterialTheme.typography.titleMedium
@@ -106,7 +114,10 @@ fun MainScreen(viewModel: GisViewModel = hiltViewModel()) {
                             selected = selectedIndex == index,
                             onClick = {
                                 selectedIndex = index
-                                navController.navigate(item.route)
+                                navController.navigate(item.route) {
+                                    popUpTo(navController.graph.startDestinationId)
+                                    launchSingleTop = true
+                                }
                             }
                         )
                     }
@@ -120,13 +131,24 @@ fun MainScreen(viewModel: GisViewModel = hiltViewModel()) {
             ) {
                 composable("alerts") { AlertsView() }
                 composable("safetymap") { OperationalView(viewModel) }
-                composable("operations") { OperationsCenterView(viewModel) }
                 composable("report") { FieldView() }
-                composable("analytics") { AnalyticsView() }
+                
+                if (role == "citizen") {
+                    composable("evac") { EvacuationCentersView(viewModel) }
+                }
+                
+                if (role == "eoc_personnel" || role == "admin") {
+                    composable("operations") { OperationsCenterView(viewModel) }
+                    composable("analytics") { AnalyticsView(viewModel) }
+                    composable("notes") { ShiftNotesView(viewModel) }
+                }
+                
+                if (role == "admin") {
+                    composable("users") { UserManagementView(viewModel) }
+                }
             }
         }
         
-        // AI Chatbot Overlay - Hidden on Report screen to avoid blocking forms
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route
         
@@ -134,22 +156,33 @@ fun MainScreen(viewModel: GisViewModel = hiltViewModel()) {
             BantayFabOverlay(
                 gisViewModel = viewModel,
                 onNavigate = { route: String ->
-                    navController.navigate(route)
-                    val index = navigationItems.indexOfFirst { it.route == route }
-                    if (index != -1) selectedIndex = index
+                    val canNavigate = when(route) {
+                        "operations", "analytics", "notes" -> role != "citizen"
+                        "users" -> role == "admin"
+                        else -> true
+                    }
+                    if (canNavigate) {
+                        navController.navigate(route)
+                        val index = navigationItems.indexOfFirst { it.route == route }
+                        if (index != -1) selectedIndex = index
+                    }
                 }
             )
         }
     }
 }
 
-data class NavigationItem(val label: String, val route: String, val icon: ImageVector)
-
 @Composable
-fun LoginScreen(onLogin: (String) -> Unit, onRegister: (String, String) -> Unit) {
+fun LoginScreen(
+    onLogin: (String, String) -> Unit, 
+    onRegister: (String, String, String, String) -> Unit
+) {
     var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
+    var municipality by remember { mutableStateOf(com.example.cnpdrrmoeoc.gis.CamNorteGeography.MUNICIPALITIES.first().name) }
     var isRegistering by remember { mutableStateOf(false) }
+    var showMuniMenu by remember { mutableStateOf(false) }
     
     Column(
         modifier = Modifier.fillMaxSize().padding(32.dp).verticalScroll(rememberScrollState()),
@@ -175,6 +208,36 @@ fun LoginScreen(onLogin: (String) -> Unit, onRegister: (String, String) -> Unit)
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(16.dp))
+            
+            Box(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = municipality,
+                    onValueChange = { },
+                    label = { Text("Municipality") },
+                    modifier = Modifier.fillMaxWidth(),
+                    readOnly = true,
+                    trailingIcon = {
+                        IconButton(onClick = { showMuniMenu = true }) {
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                        }
+                    }
+                )
+                DropdownMenu(
+                    expanded = showMuniMenu,
+                    onDismissRequest = { showMuniMenu = false }
+                ) {
+                    com.example.cnpdrrmoeoc.gis.CamNorteGeography.MUNICIPALITIES.forEach { muni ->
+                        DropdownMenuItem(
+                            text = { Text(muni.name) },
+                            onClick = {
+                                municipality = muni.name
+                                showMuniMenu = false
+                            }
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
         }
 
         OutlinedTextField(
@@ -183,11 +246,21 @@ fun LoginScreen(onLogin: (String) -> Unit, onRegister: (String, String) -> Unit)
             label = { Text("Email Address") },
             modifier = Modifier.fillMaxWidth()
         )
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text("Password") },
+            modifier = Modifier.fillMaxWidth(),
+            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation()
+        )
         
         Spacer(modifier = Modifier.height(24.dp))
         Button(
             onClick = { 
-                if (isRegistering) onRegister(name, email) else onLogin(email) 
+                if (isRegistering) onRegister(name, email, password, municipality) 
+                else onLogin(email, password) 
             },
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -200,7 +273,7 @@ fun LoginScreen(onLogin: (String) -> Unit, onRegister: (String, String) -> Unit)
 
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            "Staff use official @eoc.gov emails to unlock operational tools.",
+            "Staff use official accounts to unlock operational tools.",
             style = MaterialTheme.typography.bodySmall,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             color = MaterialTheme.colorScheme.secondary
@@ -208,10 +281,13 @@ fun LoginScreen(onLogin: (String) -> Unit, onRegister: (String, String) -> Unit)
     }
 }
 
+data class NavigationItem(val label: String, val route: String, val icon: ImageVector)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlertsView(viewModel: GisViewModel = hiltViewModel()) {
-    val alertsData by viewModel.latestAlerts.collectAsState()
+    val alertsData by viewModel.activeAlerts.collectAsState()
+    val user by viewModel.currentUser.collectAsState()
     val context = LocalContext.current
     
     var lastAlertCount by remember { mutableIntStateOf(0) }
@@ -227,34 +303,55 @@ fun AlertsView(viewModel: GisViewModel = hiltViewModel()) {
         lastAlertCount = alertsData.size
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.fetchLatestAgencyAlerts()
-    }
-
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("Active Public Advisories", style = MaterialTheme.typography.headlineSmall)
+        
+        // "I'm Safe" Check-in Panel
+        if (user?.role == "citizen" && alertsData.any { it.affected_municipality == user?.municipality }) {
+            Spacer(modifier = Modifier.height(16.dp))
+            val latestAlert = alertsData.first { it.affected_municipality == user?.municipality }
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Emergency Check-in", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "An active alert is in effect for ${user?.municipality}.",
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = { viewModel.checkInSafe(latestAlert.id) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Check, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("I AM SAFE")
+                    }
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
         
         if (alertsData.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+                Text("No active alerts for your area.", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(alertsData) { alert: AgencyAlert ->
+                items(alertsData) { alert ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                        onClick = {
-                            alert.url?.let {
-                                try {
-                                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(it))
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    android.widget.Toast.makeText(context, "Cannot open link", android.widget.Toast.LENGTH_SHORT).show()
-                                }
+                        colors = CardDefaults.cardColors(
+                            containerColor = when(alert.severity) {
+                                "critical" -> Color(0xFFFFEBEE)
+                                "high" -> Color(0xFFFFF3E0)
+                                else -> MaterialTheme.colorScheme.secondaryContainer
                             }
-                        }
+                        )
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Row(
@@ -262,8 +359,10 @@ fun AlertsView(viewModel: GisViewModel = hiltViewModel()) {
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(alert.source, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                                Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Text(alert.type.uppercase(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                                if (alert.severity == "critical" || alert.severity == "high") {
+                                    Icon(Icons.Default.Warning, contentDescription = null, tint = Color.Red, modifier = Modifier.size(16.dp))
+                                }
                             }
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(alert.title, style = MaterialTheme.typography.titleMedium)
@@ -271,13 +370,6 @@ fun AlertsView(viewModel: GisViewModel = hiltViewModel()) {
                             Text(alert.description, style = MaterialTheme.typography.bodySmall, maxLines = 3)
                         }
                     }
-                }
-                
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Tip: Always follow official instructions from your local MDRRMO or PDRRMO during emergencies.", 
-                        style = MaterialTheme.typography.bodySmall, 
-                        color = MaterialTheme.colorScheme.secondary)
                 }
             }
         }
@@ -300,14 +392,12 @@ fun OperationalView(viewModel: GisViewModel = hiltViewModel()) {
             }
         )
 
-        // Floating Action Button to load hazard data
         Column(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp),
             horizontalAlignment = Alignment.End
         ) {
-            // Offline Toggle
             Card(
                 modifier = Modifier.padding(bottom = 8.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -359,20 +449,16 @@ fun OperationalView(viewModel: GisViewModel = hiltViewModel()) {
                     val sourceId = "flood-source"
                     val layerId = "flood-layer"
                     
-                    // Remove existing if any
                     style.removeLayer(layerId)
                     style.removeSource(sourceId)
-
-                    // Add GeoJSON source and layer
                     style.addSource(GeoJsonSource(sourceId, floodData))
                     
-                    // Android MapLibre Layer with dynamic color logic
                     val layer = FillLayer(layerId, sourceId)
                     layer.setProperties(
                         PropertyFactory.fillColor(
                             org.maplibre.android.style.expressions.Expression.match(
                                 org.maplibre.android.style.expressions.Expression.get("susceptibility"),
-                                org.maplibre.android.style.expressions.Expression.literal("#ef4444"), // default red
+                                org.maplibre.android.style.expressions.Expression.literal("#ef4444"),
                                 org.maplibre.android.style.expressions.Expression.literal("very_high"), org.maplibre.android.style.expressions.Expression.literal("#ef4444"),
                                 org.maplibre.android.style.expressions.Expression.literal("high"), org.maplibre.android.style.expressions.Expression.literal("#f97316"),
                                 org.maplibre.android.style.expressions.Expression.literal("moderate"), org.maplibre.android.style.expressions.Expression.literal("#eab308"),
@@ -390,7 +476,7 @@ fun OperationalView(viewModel: GisViewModel = hiltViewModel()) {
 }
 
 @Composable
-fun AnalyticsView(viewModel: GisViewModel = hiltViewModel()) {
+fun AnalyticsView(viewModel: GisViewModel) {
     val analytics by viewModel.analyticsData.collectAsState()
     val isAnalyzing by viewModel.isAnalyzing.collectAsState()
     
@@ -432,7 +518,6 @@ fun AnalyticsView(viewModel: GisViewModel = hiltViewModel()) {
                 }
             }
         } else {
-            // Top Stats (Mirroring Web Cards)
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Card(modifier = Modifier.weight(1f)) {
                     Column(modifier = Modifier.padding(12.dp)) {
@@ -494,3 +579,4 @@ fun AnalyticsView(viewModel: GisViewModel = hiltViewModel()) {
         }
     }
 }
+

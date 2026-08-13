@@ -59,7 +59,8 @@ export const createClient = ({ firebaseConfig }) => {
       'Unit': 'units',
       'Incident': 'incidents',
       'Assignment': 'assignments',
-      'HazardAlert': 'hazard_alerts'
+      'HazardAlert': 'hazard_alerts',
+      'CheckIn': 'checkins'
     };
     return mapping[name] || name.toLowerCase() + 's';
   };
@@ -126,6 +127,9 @@ export const createClient = ({ firebaseConfig }) => {
         dispatch: async (incidentId, { unitId, etaMinutes, notes }) => {
           if (entityName !== 'Incident') throw new Error('Dispatch only available for Incidents');
 
+          const currentUser = auth.currentUser;
+          if (!currentUser) throw new Error("Authentication required for dispatch");
+
           return await runTransaction(db, async (transaction) => {
             const unitRef = doc(db, 'units', unitId);
             const incidentRef = doc(db, 'incidents', incidentId);
@@ -147,6 +151,7 @@ export const createClient = ({ firebaseConfig }) => {
             const assignmentData = {
               incident_id: incidentId,
               unit_id: unitId,
+              dispatcher_id: currentUser.uid,
               status: 'assigned',
               eta_minutes: etaMinutes,
               notes: notes || '',

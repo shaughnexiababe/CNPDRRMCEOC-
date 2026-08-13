@@ -26,9 +26,11 @@ import com.google.android.gms.location.LocationServices
 @SuppressLint("MissingPermission")
 @Composable
 fun FieldView(viewModel: GisViewModel = hiltViewModel()) {
+    val user by viewModel.currentUser.collectAsState()
+    
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var municipality by remember { mutableStateOf(CamNorteGeography.MUNICIPALITIES.first().name) }
+    var municipality by remember { mutableStateOf("") }
     var barangay by remember { mutableStateOf("") }
     var incidentType by remember { mutableStateOf("Flood") }
     
@@ -41,6 +43,13 @@ fun FieldView(viewModel: GisViewModel = hiltViewModel()) {
     val context = LocalContext.current
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
     
+    // Set default municipality from user profile
+    LaunchedEffect(user) {
+        user?.let {
+            if (municipality.isEmpty()) municipality = it.municipality
+        }
+    }
+
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -50,7 +59,19 @@ fun FieldView(viewModel: GisViewModel = hiltViewModel()) {
                     latitude = it.latitude
                     longitude = it.longitude
                     viewModel.updateLocation(it.latitude, it.longitude)
-                    Toast.makeText(context, "Location captured!", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    // Auto-capture location on start if permitted
+    LaunchedEffect(Unit) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                location?.let {
+                    latitude = it.latitude
+                    longitude = it.longitude
+                    viewModel.updateLocation(it.latitude, it.longitude)
                 }
             }
         }
@@ -68,7 +89,7 @@ fun FieldView(viewModel: GisViewModel = hiltViewModel()) {
                 latitude = null
                 longitude = null
             } else {
-                Toast.makeText(context, "Failed to submit report. Saved locally.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Failed to submit report.", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -89,7 +110,6 @@ fun FieldView(viewModel: GisViewModel = hiltViewModel()) {
             modifier = Modifier.fillMaxWidth()
         )
 
-        // Location capturing
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -126,12 +146,11 @@ fun FieldView(viewModel: GisViewModel = hiltViewModel()) {
                 ) {
                     Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Capture")
+                    Text(if (latitude != null) "Refresh" else "Capture")
                 }
             }
         }
 
-        // Municipality Dropdown
         Box {
             OutlinedTextField(
                 value = municipality,
@@ -165,7 +184,6 @@ fun FieldView(viewModel: GisViewModel = hiltViewModel()) {
             modifier = Modifier.fillMaxWidth()
         )
 
-        // Type Dropdown
         Box {
             OutlinedTextField(
                 value = incidentType,
@@ -202,7 +220,7 @@ fun FieldView(viewModel: GisViewModel = hiltViewModel()) {
 
         Button(
             onClick = {
-                if (title.isNotBlank() && description.isNotBlank()) {
+                if (title.isNotBlank() && description.isNotBlank() && municipality.isNotBlank()) {
                     viewModel.submitReport(title, description, incidentType, municipality, barangay, latitude, longitude)
                 } else {
                     Toast.makeText(context, "Please fill required fields", Toast.LENGTH_SHORT).show()
@@ -213,8 +231,6 @@ fun FieldView(viewModel: GisViewModel = hiltViewModel()) {
         ) {
             Text("Send Report to EOC")
         }
-        
-        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
         
         Text("Emergency Hotlines", style = MaterialTheme.typography.titleSmall)
         Card(modifier = Modifier.fillMaxWidth()) {

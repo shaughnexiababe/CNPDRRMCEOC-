@@ -2,17 +2,20 @@ package com.example.cnpdrrmoeoc.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.cnpdrrmoeoc.data.AgencyAlert
-import com.example.cnpdrrmoeoc.data.IncidentReport
-import com.example.cnpdrrmoeoc.data.User
+import com.example.cnpdrrmoeoc.data.*
+import com.example.cnpdrrmoeoc.data.Unit
 import com.example.cnpdrrmoeoc.data.repository.AuthRepository
 import com.example.cnpdrrmoeoc.data.repository.GisRepository
 import com.example.cnpdrrmoeoc.gis.CamNorteGeography
+import com.google.firebase.Timestamp
+import com.google.firebase.firestore.GeoPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class GisViewModel @Inject constructor(
     private val repository: GisRepository,
@@ -27,11 +30,41 @@ class GisViewModel @Inject constructor(
     private val _landslideLayerJson = MutableStateFlow<String?>(null)
     val landslideLayerJson = _landslideLayerJson.asStateFlow()
 
-    private val _latestAlerts = MutableStateFlow<List<AgencyAlert>>(emptyList())
-    val latestAlerts = _latestAlerts.asStateFlow()
+    // Real-time Incidents
+    val activeIncidents: StateFlow<List<Incident>> = currentUser
+        .flatMapLatest { user ->
+            if (user == null) flowOf(emptyList())
+            else repository.getIncidents(if (user.role == "citizen") user.municipality else null)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val _activeIncidents = MutableStateFlow<List<IncidentReport>>(emptyList())
-    val activeIncidents = _activeIncidents.asStateFlow()
+    // Real-time Active Alerts
+    val activeAlerts: StateFlow<List<HazardAlert>> = currentUser
+        .flatMapLatest { user ->
+            if (user == null) flowOf(emptyList())
+            else repository.getActiveAlerts(if (user.role == "citizen") user.municipality else null)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Real-time Units (EOC/Admin only)
+    val units: StateFlow<List<Unit>> = currentUser
+        .flatMapLatest { user ->
+            if (user?.role != "citizen" && user != null) repository.getUnits()
+            else flowOf(emptyList())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Real-time Assignments (EOC/Admin only)
+    val assignments: StateFlow<List<Assignment>> = currentUser
+        .flatMapLatest { user ->
+            if (user?.role != "citizen" && user != null) repository.getActiveAssignments()
+            else flowOf(emptyList())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Legacy support for AgencyAlert UI
+    private val _latestAgencyAlerts = MutableStateFlow<List<AgencyAlert>>(emptyList())
+    val latestAgencyAlerts = _latestAgencyAlerts.asStateFlow()
 
     private val _currentLocation = MutableStateFlow<Pair<Double, Double>?>(null)
     val currentLocation = _currentLocation.asStateFlow()
@@ -61,7 +94,6 @@ class GisViewModel @Inject constructor(
     fun runProvincialAnalysis() {
         _isAnalyzing.value = true
         viewModelScope.launch {
-            // Simulate the "Sync-and-Cache" delay of the web app
             kotlinx.coroutines.delay(1500)
             
             val municipalities = CamNorteGeography.MUNICIPALITIES
@@ -96,7 +128,6 @@ class GisViewModel @Inject constructor(
                 muniBreakdown = breakdown.sortedByDescending { it.exposedHH }
             )
             
-            // Also load the map data locally
             _floodLayerJson.value = repository.fetchFloodData()
             _landslideLayerJson.value = repository.fetchLandslideData()
             
@@ -109,22 +140,47 @@ class GisViewModel @Inject constructor(
         description: String,
         type: String,
         municipality: String,
-        barangay: String? = null,
+        barangay: String = "",
         latitude: Double? = null,
         longitude: Double? = null
     ) {
+        val user = currentUser.value ?: return
         viewModelScope.launch {
-            val report = IncidentReport(
+            val incident = Incident(
                 title = title,
                 description = description,
                 type = type,
                 municipality = municipality,
                 barangay = barangay,
-                latitude = latitude, 
-                longitude = longitude
+                location = if (latitude != null && longitude != null) GeoPoint(latitude, longitude) else null,
+                status = "reported",
+                priority = "medium",
+                reported_by_id = user.id,
+                created_at = Timestamp.now(),
+                updated_at = Timestamp.now()
             )
-            val success = repository.submitIncidentReport(report)
+            val success = repository.submitIncidentReport(incident)
             _submissionStatus.emit(success)
+        }
+    }
+
+    fun verifyIncident(incidentId: String) {
+        val user = currentUser.value ?: return
+        viewModelScope.launch {
+            repository.verifyIncident(incidentId, user.id)
+        }
+    }
+
+    fun dispatchUnit(incidentId: String, unitId: String, etaMinutes: Int, notes: String) {
+        val user = currentUser.value ?: return
+        viewModelScope.launch {
+            repository.dispatchUnit(
+                incidentId = incidentId,
+                unitId = unitId,
+                dispatcherId = user.id,
+                etaMinutes = etaMinutes,
+                notes = notes
+            )
         }
     }
 
@@ -165,34 +221,44 @@ class GisViewModel @Inject constructor(
                 ))
             }
             
-            _latestAlerts.value = alerts
+            _latestAgencyAlerts.value = alerts
         }
     }
 
-    fun fetchActiveIncidents() {
+    fun login(email: String, password: String) {
         viewModelScope.launch {
-            // In a real app, we'd fetch from repository. For now, empty or mock if needed.
-            // _activeIncidents.value = repository.getActiveIncidents()
+            authRepository.login(email, password)
         }
     }
 
-    fun login(email: String) {
-        authRepository.login(email)
-    }
-
-    fun register(name: String, email: String) {
-        authRepository.register(name, email)
+    fun register(fullName: String, email: String, password: String, municipality: String) {
+        viewModelScope.launch {
+            authRepository.register(fullName, email, password, municipality)
+        }
     }
 
     fun triggerSOS(latitude: Double?, longitude: Double?) {
+        val user = currentUser.value
         submitReport(
             title = "SOS EMERGENCY SIGNAL",
             description = "User triggered an SOS via Bantay AI Chatbot.",
             type = "Emergency",
-            municipality = "Unknown", // Ideally we should resolve this from coords
+            municipality = user?.municipality ?: "Unknown",
             latitude = latitude,
             longitude = longitude
         )
+    }
+
+    fun checkInSafe(alertId: String) {
+        val user = currentUser.value ?: return
+        viewModelScope.launch {
+            repository.checkInSafe(
+                userId = user.id,
+                alertId = alertId,
+                municipality = user.municipality,
+                barangay = user.barangay
+            )
+        }
     }
 
     fun logout() {

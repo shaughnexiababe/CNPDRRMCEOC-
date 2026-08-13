@@ -1,40 +1,232 @@
 package com.example.cnpdrrmoeoc.data.repository
 
 import android.content.Context
-import com.example.cnpdrrmoeoc.data.IncidentReport
+import com.example.cnpdrrmoeoc.data.Assignment
+import com.example.cnpdrrmoeoc.data.CheckIn
+import com.example.cnpdrrmoeoc.data.HazardAlert
+import com.example.cnpdrrmoeoc.data.Incident
+import com.example.cnpdrrmoeoc.data.Unit
 import com.example.cnpdrrmoeoc.data.local.dao.IncidentDao
 import com.example.cnpdrrmoeoc.data.remote.AlertApiService
 import com.example.cnpdrrmoeoc.data.remote.GeoRiskApiService
 import com.example.cnpdrrmoeoc.data.remote.IncidentApiService
+import com.google.firebase.Timestamp
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.GeoPoint
+import com.google.firebase.firestore.SetOptions
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class GisRepository @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val firestore: FirebaseFirestore,
     private val incidentDao: IncidentDao,
     private val geoRiskApi: GeoRiskApiService,
     private val alertApi: AlertApiService,
     private val incidentApi: IncidentApiService
 ) {
     /**
-     * Submits a field incident report. Saves locally first (Offline-Sync logic).
+     * Real-time listener for incidents.
+     * Scoped by municipality for citizens, unfiltered for EOC/Admin.
      */
-    suspend fun submitIncidentReport(report: IncidentReport): Boolean {
-        // 1. Save to local DB immediately for persistence
-        incidentDao.insertIncident(report)
+    fun getIncidents(municipality: String? = null): Flow<List<Incident>> = callbackFlow {
+        var query = firestore.collection("incidents")
+            .orderBy("created_at", Query.Direction.DESCENDING)
 
-        // 2. Attempt to sync with production server
+        if (municipality != null) {
+            query = query.whereEqualTo("municipality", municipality)
+        }
+
+        val subscription = query.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                close(error)
+                return@addSnapshotListener
+            }
+            if (snapshot != null) {
+                val incidents = snapshot.toObjects(Incident::class.java)
+                trySend(incidents)
+            }
+        }
+
+        awaitClose { subscription.remove() }
+    }
+
+    /**
+     * Real-time listener for active hazard alerts.
+     */
+    fun getActiveAlerts(municipality: String? = null): Flow<List<HazardAlert>> = callbackFlow {
+        var query = firestore.collection("hazard_alerts")
+            .whereEqualTo("status", "active")
+            .orderBy("issued_at", Query.Direction.DESCENDING)
+
+        if (municipality != null) {
+            query = query.whereEqualTo("affected_municipality", municipality)
+        }
+
+        val subscription = query.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                close(error)
+                return@addSnapshotListener
+            }
+            if (snapshot != null) {
+                val alerts = snapshot.toObjects(HazardAlert::class.java)
+                trySend(alerts)
+            }
+        }
+
+        awaitClose { subscription.remove() }
+    }
+
+    /**
+     * Real-time listener for units.
+     */
+    fun getUnits(): Flow<List<Unit>> = callbackFlow {
+        val subscription = firestore.collection("units")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                if (snapshot != null) {
+                    trySend(snapshot.toObjects(Unit::class.java))
+                }
+            }
+        awaitClose { subscription.remove() }
+    }
+
+    /**
+     * Real-time listener for active assignments.
+     */
+    fun getActiveAssignments(): Flow<List<Assignment>> = callbackFlow {
+        val subscription = firestore.collection("assignments")
+            .whereIn("status", listOf("assigned", "enroute", "on_scene"))
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                if (snapshot != null) {
+                    trySend(snapshot.toObjects(Assignment::class.java))
+                }
+            }
+        awaitClose { subscription.remove() }
+    }
+
+    /**
+     * Atomic dispatch transaction.
+     * Updates unit status, incident status, and creates an assignment.
+     */
+    suspend fun dispatchUnit(
+        incidentId: String,
+        unitId: String,
+        dispatcherId: String,
+        etaMinutes: Int,
+        notes: String
+    ): Result<Assignment> {
         return try {
-            val response = incidentApi.submitReport(report)
-            if (response.isSuccessful) {
-                // If successful, we could mark as synced or keep as local record
-                true
-            } else false
+            val assignment = firestore.runTransaction { transaction ->
+                val unitRef = firestore.collection("units").document(unitId)
+                val incidentRef = firestore.collection("incidents").document(incidentId)
+                val assignmentRef = firestore.collection("assignments").document()
+
+                val unitSnap = transaction.get(unitRef)
+                if (!unitSnap.exists()) throw Exception("Unit not found")
+                if (unitSnap.getString("status") != "available") {
+                    throw Exception("Unit is no longer available")
+                }
+
+                // 1. Update Unit
+                transaction.update(unitRef, "status", "dispatched")
+                transaction.update(unitRef, "updated_at", FieldValue.serverTimestamp())
+
+                // 2. Update Incident
+                transaction.update(incidentRef, "status", "dispatched")
+                transaction.update(incidentRef, "updated_at", FieldValue.serverTimestamp())
+
+                // 3. Create Assignment
+                val assignmentData = Assignment(
+                    id = assignmentRef.id,
+                    incident_id = incidentId,
+                    unit_id = unitId,
+                    dispatcher_id = dispatcherId,
+                    status = "assigned",
+                    eta_minutes = etaMinutes,
+                    notes = notes,
+                    assigned_at = Timestamp.now()
+                )
+                transaction.set(assignmentRef, assignmentData)
+                assignmentData
+            }.await()
+            Result.success(assignment)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun verifyIncident(incidentId: String, userId: String): Boolean {
+        return try {
+            firestore.collection("incidents").document(incidentId)
+                .update(
+                    "status", "verified",
+                    "verified_by_id", userId,
+                    "verified_at", FieldValue.serverTimestamp()
+                ).await()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Submits a field incident report directly to Firestore.
+     */
+    suspend fun submitIncidentReport(incident: Incident): Boolean {
+        return try {
+            firestore.collection("incidents").add(incident).await()
+            true
         } catch (e: Exception) {
             e.printStackTrace()
-            false // Remains in local DB for later retry
+            false
+        }
+    }
+
+    /**
+     * Records a citizen "I'm safe" check-in.
+     * Updates the user document with last_checkin_at and writes a record to checkins collection.
+     */
+    suspend fun checkInSafe(userId: String, alertId: String, municipality: String, barangay: String): Boolean {
+        return try {
+            val now = Timestamp.now()
+            val checkIn = CheckIn(
+                user_id = userId,
+                hazard_alert_id = alertId,
+                municipality = municipality,
+                barangay = barangay,
+                status = "safe",
+                created_at = now
+            )
+            
+            firestore.runBatch { batch ->
+                // 1. Create check-in record
+                val checkInRef = firestore.collection("checkins").document()
+                batch.set(checkInRef, checkIn)
+                
+                // 2. Update user doc with last check-in timestamp
+                val userRef = firestore.collection("users").document(userId)
+                batch.update(userRef, "last_checkin_at", now)
+            }.await()
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
         }
     }
 
@@ -50,7 +242,6 @@ class GisRepository @Inject constructor(
      * Fetches Flood susceptibility. Mirrors web logic: Local-First.
      */
     suspend fun fetchFloodData(bbox: String? = null): String? {
-        // Try local file first (Mirroring Web App "Sync-and-Cache" / Local-First)
         val local = loadFromAssets("hazards/flood_camnorte.json")
         if (local != null) return local
 
@@ -93,7 +284,7 @@ class GisRepository @Inject constructor(
     }
 
     /**
-     * Fetches latest weather bulletins from PAGASA (Placeholder/GMA fallback).
+     * Fetches latest weather bulletins from PAGASA.
      */
     suspend fun fetchPagasaAlerts(): String? {
         return try {
