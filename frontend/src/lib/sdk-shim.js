@@ -1,4 +1,4 @@
-import { createClient as createRealClient } from '../../../../sdk/index.js';
+import { createClient as createRealClient } from '@shaughnexiababe/sdk';
 
 // Firebase configuration from environment variables
 const firebaseConfig = {
