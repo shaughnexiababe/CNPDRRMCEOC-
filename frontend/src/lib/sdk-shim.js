@@ -1,4 +1,4 @@
-import { createClient as createRealClient, createAxiosClient } from '../../../../sdk/index.js';
+import { createClient as createRealClient, createAxiosClient } from '../../../sdk/index.js';
 
 // Firebase configuration from environment variables
 const firebaseConfig = {
