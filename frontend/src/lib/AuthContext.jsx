@@ -8,6 +8,11 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   console.log('SDK Debug:', cnpdrrmceoc);
+  console.log('Firebase Config Check:', {
+    apiKey: !!import.meta.env.VITE_FIREBASE_API_KEY,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    useRealSdk: import.meta.env.VITE_USE_REAL_SDK
+  });
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(true);
