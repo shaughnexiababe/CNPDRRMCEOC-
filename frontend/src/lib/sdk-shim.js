@@ -1,4 +1,4 @@
-import { createClient as createRealClient } from '@shaughnexiababe/sdk';
+import { createClient as createRealClient, createAxiosClient } from '../../../../sdk/index.js';
 
 // Firebase configuration from environment variables
 const firebaseConfig = {
@@ -19,3 +19,6 @@ export const createClient = () => {
   console.log(`Initializing CN-PDRRMO SDK with Firebase project: ${firebaseConfig.projectId}`);
   return createRealClient({ firebaseConfig });
 };
+
+// Export axios client creator for backward compatibility with legacy app checks
+export { createAxiosClient };
