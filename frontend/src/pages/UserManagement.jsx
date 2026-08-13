@@ -1,20 +1,33 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cnpdrrmceoc } from '@/lib/cnpdrrmceoc';
+import { useAuth } from '@/lib/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users as UsersIcon, UserPlus, Shield, HardHat, User, MoreVertical, Trash2 } from 'lucide-react';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter
+} from '@/components/ui/dialog';
+import { Users as UsersIcon, UserPlus, Shield, HardHat, User, Trash2, Copy, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 export default function UserManagement() {
+  const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
   const [filterRole, setFilterRole] = useState('all');
 
+  // Invite form state
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteData, setInviteData] = useState({ email: '', fullName: '', role: 'eoc_personnel' });
+  const [inviteLink, setInviteLink] = useState('');
+  const [copied, setCopied] = useState(false);
+
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['users'],
-    queryFn: () => cnpdrrmceoc.entities.User.list('-created_date', 100),
+    queryFn: () => cnpdrrmceoc.entities.User.list('-created_at', 100),
   });
 
   const updateRoleMutation = useMutation({
@@ -27,6 +40,19 @@ export default function UserManagement() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
   });
 
+  const inviteStaffMutation = useMutation({
+    mutationFn: async (data) => {
+      const functions = getFunctions();
+      const inviteStaff = httpsCallable(functions, 'inviteStaff');
+      const result = await inviteStaff(data);
+      return result.data;
+    },
+    onSuccess: (data) => {
+      setInviteLink(data.inviteLink);
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+
   const roleConfig = {
     admin: { label: 'Admin', icon: Shield, color: 'text-red-600 bg-red-500/10 border-red-500/20' },
     eoc_personnel: { label: 'EOC Personnel', icon: HardHat, color: 'text-orange-600 bg-orange-500/10 border-orange-500/20' },
@@ -37,6 +63,12 @@ export default function UserManagement() {
     ? users
     : users.filter(u => u.role === filterRole);
 
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -44,7 +76,82 @@ export default function UserManagement() {
           <h1 className="text-2xl font-bold tracking-tight">User Management</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage platform roles and access permissions</p>
         </div>
-        <Button disabled><UserPlus className="w-4 h-4 mr-2" /> Invite Official</Button>
+
+        <Dialog open={inviteOpen} onOpenChange={(open) => {
+          setInviteOpen(open);
+          if (!open) { setInviteLink(''); setInviteData({ email: '', fullName: '', role: 'eoc_personnel' }); }
+        }}>
+          <DialogTrigger asChild>
+            <Button><UserPlus className="w-4 h-4 mr-2" /> Invite Official</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Invite Staff Member</DialogTitle>
+              <DialogDescription>
+                This will create a system account. They will need to set their password via the link provided.
+              </DialogDescription>
+            </DialogHeader>
+
+            {!inviteLink ? (
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Full Name</Label>
+                  <Input
+                    placeholder="Juan Dela Cruz"
+                    value={inviteData.fullName}
+                    onChange={(e) => setInviteData({...inviteData, fullName: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email Address</Label>
+                  <Input
+                    type="email"
+                    placeholder="juan@eoc.gov.ph"
+                    value={inviteData.email}
+                    onChange={(e) => setInviteData({...inviteData, email: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Role</Label>
+                  <Select
+                    value={inviteData.role}
+                    onValueChange={(val) => setInviteData({...inviteData, role: val})}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="eoc_personnel">EOC Personnel</SelectItem>
+                      <SelectItem value="admin">Administrator</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 py-4">
+                <div className="p-3 rounded bg-green-50 border border-green-100 text-green-800 text-xs">
+                  Account created successfully! Share the link below with the user.
+                </div>
+                <div className="flex gap-2">
+                  <Input readOnly value={inviteLink} className="text-xs" />
+                  <Button size="icon" variant="outline" onClick={copyToClipboard}>
+                    {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <DialogFooter>
+              {!inviteLink && (
+                <Button
+                  onClick={() => inviteStaffMutation.mutate(inviteData)}
+                  disabled={inviteStaffMutation.isPending || !inviteData.email || !inviteData.fullName}
+                >
+                  {inviteStaffMutation.isPending ? "Creating..." : "Send Invite"}
+                </Button>
+              )}
+              {inviteLink && <Button variant="secondary" onClick={() => setInviteOpen(false)}>Close</Button>}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="flex items-center gap-3">
@@ -74,6 +181,7 @@ export default function UserManagement() {
           filteredUsers.map((user) => {
             const config = roleConfig[user.role] || roleConfig.citizen;
             const RoleIcon = config.icon;
+            const isSelf = user.id === currentUser?.id;
 
             return (
               <Card key={user.id} className="hover:shadow-sm transition-shadow">
@@ -83,7 +191,7 @@ export default function UserManagement() {
                       <RoleIcon className="w-5 h-5" />
                     </div>
                     <div>
-                      <p className="font-semibold text-sm">{user.name}</p>
+                      <p className="font-semibold text-sm">{user.full_name}</p>
                       <p className="text-xs text-muted-foreground">{user.email}</p>
                     </div>
                   </div>
@@ -93,7 +201,12 @@ export default function UserManagement() {
                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Access Level</Label>
                        <Select
                         value={user.role}
-                        onValueChange={(newRole) => updateRoleMutation.mutate({ id: user.id, role: newRole })}
+                        disabled={isSelf}
+                        onValueChange={(newRole) => {
+                          if (confirm(`Change ${user.full_name}'s role to ${newRole}?`)) {
+                            updateRoleMutation.mutate({ id: user.id, role: newRole });
+                          }
+                        }}
                        >
                          <SelectTrigger className="h-8 w-36 text-xs">
                            <SelectValue />
@@ -106,9 +219,15 @@ export default function UserManagement() {
                        </Select>
                     </div>
 
-                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => {
-                      if(confirm('Delete user?')) deleteUserMutation.mutate(user.id);
-                    }}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      disabled={isSelf}
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => {
+                        if(confirm('Delete user? This cannot be undone.')) deleteUserMutation.mutate(user.id);
+                      }}
+                    >
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>

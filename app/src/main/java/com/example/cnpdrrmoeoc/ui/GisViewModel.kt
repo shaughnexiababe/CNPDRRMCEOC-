@@ -62,7 +62,22 @@ class GisViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Legacy support for AgencyAlert UI
+    // Responder specific: The unit the user is leading
+    val myUnit: StateFlow<Unit?> = currentUser
+        .flatMapLatest { user ->
+            if (user == null) flowOf(null)
+            else units.map { list -> list.find { it.crew_lead_user_id == user.id } }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    // Responder specific: The active assignment for my unit
+    val myAssignment: StateFlow<Assignment?> = myUnit
+        .flatMapLatest { unit ->
+            if (unit == null) flowOf(null)
+            else assignments.map { list -> list.find { it.unit_id == unit.id } }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
     private val _latestAgencyAlerts = MutableStateFlow<List<AgencyAlert>>(emptyList())
     val latestAgencyAlerts = _latestAgencyAlerts.asStateFlow()
 
@@ -71,6 +86,22 @@ class GisViewModel @Inject constructor(
 
     fun updateLocation(lat: Double, lon: Double) {
         _currentLocation.value = lat to lon
+        // If I am leading a unit and it has an active assignment, push breadcrumbs
+        val unit = myUnit.value
+        val assignment = myAssignment.value
+        if (unit != null && assignment != null) {
+            viewModelScope.launch {
+                repository.updateUnitLocation(unit.id, lat, lon)
+            }
+        }
+    }
+
+    fun advanceMyAssignment() {
+        val assignment = myAssignment.value ?: return
+        val unit = myUnit.value ?: return
+        viewModelScope.launch {
+            repository.advanceAssignmentStatus(assignment.id, unit.id, assignment.status)
+        }
     }
 
     private val _analyticsData = MutableStateFlow<AnalyticsResult?>(null)

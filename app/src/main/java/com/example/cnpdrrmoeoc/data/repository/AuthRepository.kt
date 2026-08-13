@@ -87,14 +87,16 @@ class AuthRepository @Inject constructor(
 
     private fun subscribeToAlerts(municipality: String) {
         if (municipality.isBlank()) return
-        val topic = "alerts_${municipality.replace(" ", "_").lowercase()}"
+        val topicSlug = municipality.lowercase().replace(Regex("[^a-z0-9]"), "_")
+        val topic = "alerts_$topicSlug"
         messaging.subscribeToTopic(topic)
         messaging.subscribeToTopic("alerts_province") // Always subscribed to provincial alerts
     }
 
     private fun unsubscribeFromAlerts(municipality: String) {
         if (municipality.isBlank()) return
-        val topic = "alerts_${municipality.replace(" ", "_").lowercase()}"
+        val topicSlug = municipality.lowercase().replace(Regex("[^a-z0-9]"), "_")
+        val topic = "alerts_$topicSlug"
         messaging.unsubscribeFromTopic(topic)
     }
 

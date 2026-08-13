@@ -171,14 +171,67 @@ class GisRepository @Inject constructor(
         }
     }
 
-    suspend fun verifyIncident(incidentId: String, userId: String): Boolean {
+    /**
+     * Updates a unit's location and records it in history.
+     * Writes to units/{unitId} and units/{unitId}/location_history/ in a batch.
+     */
+    suspend fun updateUnitLocation(unitId: String, lat: Double, lon: Double): Boolean {
         return try {
-            firestore.collection("incidents").document(incidentId)
-                .update(
-                    "status", "verified",
-                    "verified_by_id", userId,
-                    "verified_at", FieldValue.serverTimestamp()
-                ).await()
+            val point = GeoPoint(lat, lon)
+            val now = Timestamp.now()
+            
+            val unitRef = firestore.collection("units").document(unitId)
+            val historyRef = unitRef.collection("location_history").document()
+            
+            firestore.runBatch { batch ->
+                // 1. Update latest on parent
+                batch.update(unitRef, 
+                    "current_location", point,
+                    "last_location_at", now,
+                    "updated_at", FieldValue.serverTimestamp()
+                )
+                
+                // 2. Record in subcollection
+                batch.set(historyRef, mapOf(
+                    "location" to point,
+                    "recorded_at" to now
+                ))
+            }.await()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Advances the status of an assignment.
+     * assigned -> enroute -> on_scene -> completed
+     */
+    suspend fun advanceAssignmentStatus(assignmentId: String, unitId: String, currentStatus: String): Boolean {
+        val nextStatus = when (currentStatus) {
+            "assigned" -> "enroute"
+            "enroute" -> "on_scene"
+            "on_scene" -> "completed"
+            else -> return false
+        }
+        
+        return try {
+            firestore.runTransaction { transaction ->
+                val assignmentRef = firestore.collection("assignments").document(assignmentId)
+                val unitRef = firestore.collection("units").document(unitId)
+                
+                transaction.update(assignmentRef, "status", nextStatus)
+                transaction.update(assignmentRef, "updated_at", FieldValue.serverTimestamp())
+                
+                // Mirror status to unit
+                transaction.update(unitRef, "status", nextStatus)
+                
+                // Special case: if completed, mark unit as available
+                if (nextStatus == "completed") {
+                    transaction.update(unitRef, "status", "available")
+                    transaction.update(assignmentRef, "completed_at", FieldValue.serverTimestamp())
+                }
+            }.await()
             true
         } catch (e: Exception) {
             false

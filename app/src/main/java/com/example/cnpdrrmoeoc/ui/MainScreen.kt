@@ -64,6 +64,7 @@ fun MainScreen(viewModel: GisViewModel = hiltViewModel()) {
                 add(NavigationItem("Evac Centers", "evac", Icons.Default.Home))
             } else {
                 add(NavigationItem("Operations", "operations", Icons.Default.Build))
+                add(NavigationItem("Responder", "responder", Icons.Default.Place))
                 add(NavigationItem("Field", "report", Icons.Default.Edit))
                 add(NavigationItem("Analytics", "analytics", Icons.Default.Info))
                 add(NavigationItem("Notes", "notes", Icons.Default.Edit))
@@ -139,6 +140,7 @@ fun MainScreen(viewModel: GisViewModel = hiltViewModel()) {
                 
                 if (role == "eoc_personnel" || role == "admin") {
                     composable("operations") { OperationsCenterView(viewModel) }
+                    composable("responder") { FieldResponderView(viewModel) }
                     composable("analytics") { AnalyticsView(viewModel) }
                     composable("notes") { ShiftNotesView(viewModel) }
                 }
