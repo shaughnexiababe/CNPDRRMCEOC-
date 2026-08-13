@@ -5,14 +5,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Mail, Lock, ArrowLeft } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { User, Mail, Lock, ArrowLeft, MapPin } from 'lucide-react';
+
+const MUNICIPALITIES = [
+  "Basud", "Capalonga", "Daet", "Jose Panganiban", "Labo", "Mercedes",
+  "Paracale", "San Lorenzo Ruiz", "San Vicente", "Santa Elena", "Talisay", "Vinzons"
+];
 
 export default function Register() {
   const [formData, setFormData] = useState({
-    name: '',
+    full_name: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    municipality: ''
   });
   const { register } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -24,14 +31,18 @@ export default function Register() {
     if (formData.password !== formData.confirmPassword) {
       return setError('Passwords do not match');
     }
+    if (!formData.municipality) {
+      return setError('Please select your municipality');
+    }
 
     setLoading(true);
     setError('');
     try {
       await register({
-        name: formData.name,
+        full_name: formData.full_name,
         email: formData.email,
-        password: formData.password
+        password: formData.password,
+        municipality: formData.municipality
       });
       navigate('/');
     } catch (err) {
@@ -63,12 +74,33 @@ export default function Register() {
           )}
           <form onSubmit={handleRegister} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="full_name">Full Name</Label>
               <div className="relative">
                 <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input id="name" placeholder="Juan Dela Cruz" className="pl-9" value={formData.name} onChange={handleChange} required />
+                <Input id="full_name" placeholder="Juan Dela Cruz" className="pl-9" value={formData.full_name} onChange={handleChange} required />
               </div>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="municipality">Municipality</Label>
+              <Select
+                value={formData.municipality}
+                onValueChange={(val) => setFormData({...formData, municipality: val})}
+              >
+                <SelectTrigger className="w-full">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    <SelectValue placeholder="Select Municipality" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  {MUNICIPALITIES.map(muni => (
+                    <SelectItem key={muni} value={muni}>{muni}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="email">Email Address</Label>
               <div className="relative">

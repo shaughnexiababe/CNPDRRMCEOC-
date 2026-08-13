@@ -191,13 +191,13 @@ export const createClient = ({ firebaseConfig }) => {
         };
       },
       register: async (data) => {
-        const { email, password, full_name, ...rest } = data;
+        const { email, password, full_name, name, ...rest } = data;
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
         const userData = {
           email,
-          full_name,
+          full_name: full_name || name || '',
           role: 'citizen',
           created_at: serverTimestamp(),
           ...rest
