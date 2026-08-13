@@ -13,35 +13,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.cnpdrrmoeoc.data.User
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
-import kotlinx.coroutines.tasks.await
 
 @Composable
 fun UserManagementView(viewModel: GisViewModel) {
     val currentUser by viewModel.currentUser.collectAsState()
-    var users by remember { mutableStateOf<List<User>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    val users by viewModel.allUsers.collectAsState()
+    var isLoading by remember { mutableStateOf(false) }
     
     var selectedUserForRole by remember { mutableStateOf<User?>(null) }
-
-    LaunchedEffect(Unit) {
-        isLoading = true
-        try {
-            val db = FirebaseFirestore.getInstance()
-            val snapshot = db.collection("users")
-                .orderBy("created_at", Query.Direction.DESCENDING)
-                .get()
-                .await()
-            users = snapshot.toObjects(User::class.java).mapIndexed { index, user ->
-                user.copy(id = snapshot.documents[index].id)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        } finally {
-            isLoading = false
-        }
-    }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Row(
@@ -78,12 +57,8 @@ fun UserManagementView(viewModel: GisViewModel) {
             user = user,
             onDismiss = { selectedUserForRole = null },
             onConfirm = { newRole ->
-                // Update logic
-                FirebaseFirestore.getInstance().collection("users")
-                    .document(user.id)
-                    .update("role", newRole)
+                viewModel.updateUserRole(user.id, newRole)
                 selectedUserForRole = null
-                // Ideally refresh list
             }
         )
     }

@@ -1,5 +1,6 @@
 package com.example.cnpdrrmoeoc.ui
 
+import android.content.Intent
 import android.media.RingtoneManager
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -22,6 +23,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.example.cnpdrrmoeoc.service.LocationService
 import com.example.cnpdrrmoeoc.ui.components.BantayFabOverlay
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
@@ -42,6 +44,21 @@ fun MainScreen(viewModel: GisViewModel = hiltViewModel()) {
     val navController = rememberNavController()
     val user by viewModel.currentUser.collectAsState()
     val activeAlerts by viewModel.activeAlerts.collectAsState()
+    val trackingStatus by viewModel.trackingStatus.collectAsState()
+    val context = LocalContext.current
+    
+    LaunchedEffect(trackingStatus) {
+        val intent = Intent(context, LocationService::class.java)
+        if (trackingStatus != null) {
+            intent.action = LocationService.ACTION_START
+            intent.putExtra(LocationService.EXTRA_UNIT_ID, trackingStatus!!.unitId)
+            intent.putExtra(LocationService.EXTRA_ASSIGNMENT_TITLE, trackingStatus!!.assignmentTitle)
+            context.startService(intent)
+        } else {
+            intent.action = LocationService.ACTION_STOP
+            context.startService(intent)
+        }
+    }
     
     if (user == null) {
         LoginScreen(

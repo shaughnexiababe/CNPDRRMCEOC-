@@ -12,7 +12,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.cnpdrrmoeoc"
+        applicationId = "com.cnpdrrmceoc"
         minSdk = 24
         targetSdk = 35
         versionCode = 1

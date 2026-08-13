@@ -13,43 +13,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.cnpdrrmoeoc.data.CriticalFacility
-import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.tasks.await
 
 @Composable
 fun EvacuationCentersView(viewModel: GisViewModel) {
     val user by viewModel.currentUser.collectAsState()
     val currentLocation by viewModel.currentLocation.collectAsState()
-    
-    var centers by remember { mutableStateOf<List<CriticalFacility>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    val centers by viewModel.evacuationCenters.collectAsState()
+    var isLoading by remember { mutableStateOf(false) }
 
-    LaunchedEffect(user?.municipality) {
-        if (user != null) {
-            isLoading = true
-            try {
-                val db = FirebaseFirestore.getInstance()
-                val snapshot = db.collection("facilities")
-                    .whereEqualTo("type", "evacuation_center")
-                    .whereEqualTo("status", "operational")
-                    .get()
-                    .await()
-                
-                centers = snapshot.toObjects(CriticalFacility::class.java)
-                    // If citizen, we might want to prioritize their municipality or just sort by distance
-                    .sortedBy { center ->
-                        currentLocation?.let { (lat, lon) ->
-                            // Simple Euclidean distance for sorting
-                            val dx = center.longitude - lon
-                            val dy = center.latitude - lat
-                            dx * dx + dy * dy
-                        } ?: 0.0
-                    }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            } finally {
-                isLoading = false
-            }
+    val sortedCenters = remember(centers, currentLocation) {
+        centers.sortedBy { center ->
+            currentLocation?.let { (lat, lon) ->
+                val dx = center.longitude - lon
+                val dy = center.latitude - lat
+                dx * dx + dy * dy
+            } ?: 0.0
         }
     }
 
@@ -72,7 +50,7 @@ fun EvacuationCentersView(viewModel: GisViewModel) {
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(centers) { center ->
+                items(sortedCenters) { center ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)

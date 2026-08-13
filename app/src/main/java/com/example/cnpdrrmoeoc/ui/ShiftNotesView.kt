@@ -9,42 +9,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.google.firebase.Timestamp
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
-import kotlinx.coroutines.tasks.await
-
-data class ShiftNote(
-    val id: String = "",
-    val author_id: String = "",
-    val author_name: String = "",
-    val content: String = "",
-    val created_at: Timestamp? = null
-)
+import com.example.cnpdrrmoeoc.data.ShiftNote
 
 @Composable
 fun ShiftNotesView(viewModel: GisViewModel) {
     val currentUser by viewModel.currentUser.collectAsState()
-    var notes by remember { mutableStateOf<List<ShiftNote>>(emptyList()) }
+    val notes by viewModel.shiftNotes.collectAsState()
     var newNoteText by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(true) }
-
-    val db = FirebaseFirestore.getInstance()
-
-    LaunchedEffect(Unit) {
-        isLoading = true
-        try {
-            val snapshot = db.collection("shift_notes")
-                .orderBy("created_at", Query.Direction.DESCENDING)
-                .limit(20)
-                .get()
-                .await()
-            notes = snapshot.toObjects(ShiftNote::class.java)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        } finally {
-            isLoading = false
-        }
-    }
+    var isLoading by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("Shift Handoff Log", style = MaterialTheme.typography.headlineSmall)
@@ -63,15 +35,8 @@ fun ShiftNotesView(viewModel: GisViewModel) {
                 Button(
                     onClick = {
                         if (newNoteText.isNotBlank() && currentUser != null) {
-                            val note = ShiftNote(
-                                author_id = currentUser!!.id,
-                                author_name = currentUser!!.full_name,
-                                content = newNoteText,
-                                created_at = Timestamp.now()
-                            )
-                            db.collection("shift_notes").add(note)
+                            viewModel.addShiftNote(newNoteText)
                             newNoteText = ""
-                            // Refresh logic stub
                         }
                     },
                     modifier = Modifier.align(Alignment.End)

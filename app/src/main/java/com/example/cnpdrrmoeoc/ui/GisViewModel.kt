@@ -38,6 +38,37 @@ class GisViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val evacuationCenters: StateFlow<List<CriticalFacility>> = repository.getEvacuationCenters()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val shiftNotes: StateFlow<List<ShiftNote>> = repository.getShiftNotes()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allUsers: StateFlow<List<User>> = currentUser
+        .flatMapLatest { user ->
+            if (user?.role == "admin") repository.getAllUsers()
+            else flowOf(emptyList())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun addShiftNote(content: String) {
+        val user = currentUser.value ?: return
+        viewModelScope.launch {
+            repository.addShiftNote(ShiftNote(
+                author_id = user.id,
+                author_name = user.full_name,
+                content = content,
+                created_at = Timestamp.now()
+            ))
+        }
+    }
+
+    fun updateUserRole(userId: String, newRole: String) {
+        viewModelScope.launch {
+            repository.updateUserRole(userId, newRole)
+        }
+    }
+
     // Real-time Active Alerts
     val activeAlerts: StateFlow<List<HazardAlert>> = currentUser
         .flatMapLatest { user ->
@@ -77,6 +108,16 @@ class GisViewModel @Inject constructor(
             else assignments.map { list -> list.find { it.unit_id == unit.id } }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val trackingStatus: StateFlow<TrackingInfo?> = combine(myUnit, myAssignment) { unit, assignment ->
+        if (unit != null && assignment != null && assignment.status in listOf("assigned", "enroute", "on_scene")) {
+            TrackingInfo(unitId = unit.id, assignmentTitle = assignment.notes ?: "Active Duty")
+        } else {
+            null
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    data class TrackingInfo(val unitId: String, val assignmentTitle: String)
 
     private val _latestAgencyAlerts = MutableStateFlow<List<AgencyAlert>>(emptyList())
     val latestAgencyAlerts = _latestAgencyAlerts.asStateFlow()

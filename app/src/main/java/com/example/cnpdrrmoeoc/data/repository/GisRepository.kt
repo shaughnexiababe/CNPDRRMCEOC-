@@ -6,6 +6,9 @@ import com.example.cnpdrrmoeoc.data.CheckIn
 import com.example.cnpdrrmoeoc.data.HazardAlert
 import com.example.cnpdrrmoeoc.data.Incident
 import com.example.cnpdrrmoeoc.data.Unit
+import com.example.cnpdrrmoeoc.data.User
+import com.example.cnpdrrmoeoc.data.CriticalFacility
+import com.example.cnpdrrmoeoc.data.ShiftNote
 import com.example.cnpdrrmoeoc.data.local.dao.IncidentDao
 import com.example.cnpdrrmoeoc.data.remote.AlertApiService
 import com.example.cnpdrrmoeoc.data.remote.GeoRiskApiService
@@ -247,6 +250,88 @@ class GisRepository @Inject constructor(
             true
         } catch (e: Exception) {
             e.printStackTrace()
+            false
+        }
+    }
+
+    /**
+     * Real-time listener for operational evacuation centers.
+     */
+    fun getEvacuationCenters(): Flow<List<CriticalFacility>> = callbackFlow {
+        val subscription = firestore.collection("facilities")
+            .whereEqualTo("type", "evacuation_center")
+            .whereEqualTo("status", "operational")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                if (snapshot != null) {
+                    trySend(snapshot.toObjects(CriticalFacility::class.java))
+                }
+            }
+        awaitClose { subscription.remove() }
+    }
+
+    /**
+     * Real-time listener for shift notes.
+     */
+    fun getShiftNotes(): Flow<List<ShiftNote>> = callbackFlow {
+        val subscription = firestore.collection("shift_notes")
+            .orderBy("created_at", Query.Direction.DESCENDING)
+            .limit(20)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                if (snapshot != null) {
+                    trySend(snapshot.toObjects(ShiftNote::class.java))
+                }
+            }
+        awaitClose { subscription.remove() }
+    }
+
+    /**
+     * Adds a new shift note.
+     */
+    suspend fun addShiftNote(note: ShiftNote): Boolean {
+        return try {
+            firestore.collection("shift_notes").add(note).await()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Real-time listener for all users (Admin only).
+     */
+    fun getAllUsers(): Flow<List<User>> = callbackFlow {
+        val subscription = firestore.collection("users")
+            .orderBy("created_at", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                if (snapshot != null) {
+                    trySend(snapshot.toObjects(User::class.java).mapIndexed { index, user ->
+                        user.copy(id = snapshot.documents[index].id)
+                    })
+                }
+            }
+        awaitClose { subscription.remove() }
+    }
+
+    /**
+     * Updates a user's role.
+     */
+    suspend fun updateUserRole(userId: String, newRole: String): Boolean {
+        return try {
+            firestore.collection("users").document(userId).update("role", newRole).await()
+            true
+        } catch (e: Exception) {
             false
         }
     }
