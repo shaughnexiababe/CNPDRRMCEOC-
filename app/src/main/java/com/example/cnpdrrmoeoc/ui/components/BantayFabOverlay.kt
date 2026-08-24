@@ -113,13 +113,13 @@ fun BantayFAB(onClick: () -> Unit) {
             if (composition != null) {
                 // Once sbk_icon.png is added to res/drawable, replace R.drawable.logo with R.drawable.sbk_icon
                 Image(
-                    painter = painterResource(id = R.drawable.logo),
+                    painter = painterResource(id = R.drawable.sbk_icon),
                     contentDescription = "Super Batang Kalasag",
                     modifier = Modifier.size(56.dp).clip(CircleShape)
                 )
             } else {
                 Image(
-                    painter = painterResource(id = R.drawable.logo),
+                    painter = painterResource(id = R.drawable.sbk_icon),
                     contentDescription = "Super Batang Kalasag",
                     modifier = Modifier.size(56.dp).clip(CircleShape)
                 )
@@ -158,7 +158,7 @@ fun ChatBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.logo),
+                    painter = painterResource(id = R.drawable.sbk_icon),
                     contentDescription = null,
                     modifier = Modifier.size(24.dp).clip(CircleShape).background(Color.White)
                 )

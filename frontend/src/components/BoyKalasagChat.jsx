@@ -146,7 +146,7 @@ export default function BoyKalasagChat() {
           <div className="bg-red-600 p-3 text-white flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="bg-white rounded-full p-1 w-8 h-8 flex items-center justify-center overflow-hidden">
-                <img src="/logo.png" alt="SBK" className="w-full h-full object-cover" />
+                <img src="/sbk_icon.png" alt="SBK" className="w-full h-full object-cover" />
               </div>
               <span className="font-bold tracking-tight">Super Batang Kalasag</span>
             </div>
@@ -228,7 +228,7 @@ export default function BoyKalasagChat() {
           onClick={() => setIsOpen(true)}
         >
           <div className="relative w-full h-full flex items-center justify-center">
-            <img src="/logo.png" alt="SBK" className="w-10 h-10 group-hover:scale-110 transition-transform" />
+            <img src="/sbk_icon.png" alt="SBK" className="w-10 h-10 group-hover:scale-110 transition-transform" />
             <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 border-2 border-white rounded-full animate-bounce" />
           </div>
         </Button>
