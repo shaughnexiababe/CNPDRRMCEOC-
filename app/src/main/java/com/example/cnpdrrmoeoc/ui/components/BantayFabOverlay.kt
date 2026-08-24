@@ -111,15 +111,15 @@ fun BantayFAB(onClick: () -> Unit) {
             val progress by animateLottieCompositionAsState(composition, iterations = LottieConstants.IterateForever)
 
             if (composition != null) {
-                // Once sbk_icon.png is added to res/drawable, replace R.drawable.logo with R.drawable.sbk_icon
+                // Using sbk.png from res/drawable
                 Image(
-                    painter = painterResource(id = R.drawable.sbk_icon),
+                    painter = painterResource(id = R.drawable.sbk),
                     contentDescription = "Super Batang Kalasag",
                     modifier = Modifier.size(56.dp).clip(CircleShape)
                 )
             } else {
                 Image(
-                    painter = painterResource(id = R.drawable.sbk_icon),
+                    painter = painterResource(id = R.drawable.sbk),
                     contentDescription = "Super Batang Kalasag",
                     modifier = Modifier.size(56.dp).clip(CircleShape)
                 )
@@ -158,7 +158,7 @@ fun ChatBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.sbk_icon),
+                    painter = painterResource(id = R.drawable.sbk),
                     contentDescription = null,
                     modifier = Modifier.size(24.dp).clip(CircleShape).background(Color.White)
                 )
