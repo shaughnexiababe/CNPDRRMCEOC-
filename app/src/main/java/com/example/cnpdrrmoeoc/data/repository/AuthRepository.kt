@@ -27,14 +27,20 @@ class AuthRepository @Inject constructor(
             val firebaseUser = firebaseAuth.currentUser
             if (firebaseUser == null) {
                 val oldUser = _currentUser.value
-                oldUser?.municipality?.let { unsubscribeFromAlerts(it) }
+                oldUser?.let {
+                    unsubscribeFromAlerts(it.municipality)
+                    unsubscribeStaffTopics(it.role)
+                }
                 userSession.clear()
                 _currentUser.value = null
             }
         }
         
         // Ensure subscription on startup if user is cached
-        _currentUser.value?.municipality?.let { subscribeToAlerts(it) }
+        _currentUser.value?.let {
+            subscribeToAlerts(it.municipality)
+            subscribeStaffTopics(it.role)
+        }
     }
 
     suspend fun login(email: String, password: String): Result<User> {
@@ -48,10 +54,11 @@ class AuthRepository @Inject constructor(
                 return Result.failure(Exception("User profile not found in system"))
             }
             
-            val user = doc.toObject(User::class.java)?.copy(id = firebaseUser.uid) 
+            val user = doc.toObject(User::class.java)?.copy(id = firebaseUser.uid)
                 ?: return Result.failure(Exception("Malformed user profile"))
-            
+
             subscribeToAlerts(user.municipality)
+            subscribeStaffTopics(user.role)
             userSession.saveUser(user)
             _currentUser.value = user
             Result.success(user)
@@ -73,10 +80,18 @@ class AuthRepository @Inject constructor(
                 municipality = municipality,
                 created_at = com.google.firebase.Timestamp.now()
             )
-            
-            firestore.collection("users").document(firebaseUser.uid).set(newUser).await()
+
+            try {
+                firestore.collection("users").document(firebaseUser.uid).set(newUser).await()
+            } catch (firestoreError: Exception) {
+                // Roll back the orphaned Auth account — otherwise the email is
+                // locked in "already in use" forever with no way to re-register.
+                try { firebaseUser.delete().await() } catch (_: Exception) { /* best effort */ }
+                throw firestoreError
+            }
             
             subscribeToAlerts(municipality)
+            subscribeStaffTopics(newUser.role)
             userSession.saveUser(newUser)
             _currentUser.value = newUser
             Result.success(newUser)
@@ -100,8 +115,24 @@ class AuthRepository @Inject constructor(
         messaging.unsubscribeFromTopic(topic)
     }
 
+    /** Staff devices also listen for critical/SOS dispatch pushes. */
+    private fun subscribeStaffTopics(role: String) {
+        if (role == "eoc_personnel" || role == "admin") {
+            messaging.subscribeToTopic("dispatch_staff")
+        }
+    }
+
+    private fun unsubscribeStaffTopics(role: String) {
+        if (role == "eoc_personnel" || role == "admin") {
+            messaging.unsubscribeFromTopic("dispatch_staff")
+        }
+    }
+
     fun logout() {
-        _currentUser.value?.municipality?.let { unsubscribeFromAlerts(it) }
+        _currentUser.value?.let {
+            unsubscribeFromAlerts(it.municipality)
+            unsubscribeStaffTopics(it.role)
+        }
         auth.signOut()
         userSession.clear()
         _currentUser.value = null
@@ -118,6 +149,8 @@ class AuthRepository @Inject constructor(
                         _currentUser.value?.municipality?.let { old -> unsubscribeFromAlerts(old) }
                         subscribeToAlerts(it.municipality)
                     }
+                    // Role may have been changed server-side (admin console) —
+                    // the cached session must refresh to pick it up.
                     userSession.saveUser(it)
                     _currentUser.value = it
                 }

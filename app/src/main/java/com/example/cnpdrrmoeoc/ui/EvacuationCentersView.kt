@@ -12,10 +12,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.cnpdrrmoeoc.data.CriticalFacility
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
+import com.example.cnpdrrmoeoc.data.Facility
 
 @Composable
 fun EvacuationCentersView(viewModel: GisViewModel) {
+    val context = LocalContext.current
     val user by viewModel.currentUser.collectAsState()
     val currentLocation by viewModel.currentLocation.collectAsState()
     val centers by viewModel.evacuationCenters.collectAsState()
@@ -89,7 +93,22 @@ fun EvacuationCentersView(viewModel: GisViewModel) {
                             
                             Spacer(modifier = Modifier.height(12.dp))
                             Button(
-                                onClick = { /* Navigate logic */ },
+                                onClick = {
+                                    // Open turn-by-turn navigation in Google Maps
+                                    // (was a no-op stub).
+                                    val uri = Uri.parse(
+                                        "google.navigation:q=${center.latitude},${center.longitude}"
+                                    )
+                                    try {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                                    } catch (_: Exception) {
+                                        // No maps app installed — fall back to browser
+                                        val web = Uri.parse(
+                                            "https://www.google.com/maps/dir/?api=1&destination=${center.latitude},${center.longitude}"
+                                        )
+                                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, web)) }
+                                    }
+                                },
                                 modifier = Modifier.align(Alignment.End),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                             ) {

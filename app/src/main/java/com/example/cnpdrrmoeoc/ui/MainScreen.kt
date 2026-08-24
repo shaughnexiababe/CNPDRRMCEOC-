@@ -2,6 +2,7 @@ package com.example.cnpdrrmoeoc.ui
 
 import android.content.Intent
 import android.media.RingtoneManager
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,7 +11,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,7 +31,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.cnpdrrmoeoc.R
-import com.example.cnpdrrmoeoc.data.AgencyAlert
 import com.example.cnpdrrmoeoc.ui.components.MapViewContainer
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.style.layers.FillLayer
@@ -46,17 +45,42 @@ fun MainScreen(viewModel: GisViewModel = hiltViewModel()) {
     val activeAlerts by viewModel.activeAlerts.collectAsState()
     val trackingStatus by viewModel.trackingStatus.collectAsState()
     val context = LocalContext.current
-    
+
+    // Ask for notification permission (Android 13+) so the tracking
+    // foreground-service notification and alert sounds are visible/heard.
+    val notifPermissionLauncher = rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { /* granted or not, app still works */ }
+    LaunchedEffect(Unit) {
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                context, android.Manifest.permission.POST_NOTIFICATIONS
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            notifPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    // Mirror responder tracking state into the foreground service.
+    // START_STICKY vs stop: only send STOP when we actually started it,
+    // otherwise every cold start briefly spawns the service just to stop it.
+    var trackingServiceRunning by remember { mutableStateOf(false) }
     LaunchedEffect(trackingStatus) {
-        val intent = Intent(context, LocationService::class.java)
-        if (trackingStatus != null) {
-            intent.action = LocationService.ACTION_START
-            intent.putExtra(LocationService.EXTRA_UNIT_ID, trackingStatus!!.unitId)
-            intent.putExtra(LocationService.EXTRA_ASSIGNMENT_TITLE, trackingStatus!!.assignmentTitle)
+        val active = trackingStatus
+        if (active != null) {
+            val intent = Intent(context, LocationService::class.java).apply {
+                action = LocationService.ACTION_START
+                putExtra(LocationService.EXTRA_UNIT_ID, active.unitId)
+                putExtra(LocationService.EXTRA_ASSIGNMENT_TITLE, active.assignmentTitle)
+            }
+            androidx.core.content.ContextCompat.startForegroundService(context, intent)
+            trackingServiceRunning = true
+        } else if (trackingServiceRunning) {
+            val intent = Intent(context, LocationService::class.java).apply {
+                action = LocationService.ACTION_STOP
+            }
             context.startService(intent)
-        } else {
-            intent.action = LocationService.ACTION_STOP
-            context.startService(intent)
+            trackingServiceRunning = false
         }
     }
     
@@ -94,6 +118,9 @@ fun MainScreen(viewModel: GisViewModel = hiltViewModel()) {
     }
 
     var selectedIndex by remember { mutableIntStateOf(0) }
+    // Roles have different tab counts (citizen 4, admin 8) — clamp so a role
+    // switch (logout/login) never leaves a stale out-of-range selection.
+    if (selectedIndex > navigationItems.lastIndex) selectedIndex = 0
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -309,10 +336,13 @@ fun AlertsView(viewModel: GisViewModel = hiltViewModel()) {
     val user by viewModel.currentUser.collectAsState()
     val context = LocalContext.current
     
-    var lastAlertCount by remember { mutableIntStateOf(0) }
-    
+    // -1 = "not initialized yet": the first emission is the existing backlog,
+    // NOT a new alert — playing the sound at app start for historical alerts
+    // was confusing.
+    var lastAlertCount by remember { mutableIntStateOf(-1) }
+
     LaunchedEffect(alertsData) {
-        if (alertsData.isNotEmpty() && alertsData.size > lastAlertCount) {
+        if (lastAlertCount >= 0 && alertsData.size > lastAlertCount) {
             try {
                 val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
                 val r = RingtoneManager.getRingtone(context, notification)
@@ -463,7 +493,9 @@ fun OperationalView(viewModel: GisViewModel = hiltViewModel()) {
         }
 
         if (floodData != null && mapReference != null) {
-            LaunchedEffect(floodData) {
+            // Re-apply when EITHER the data or the map instance changes
+            // (the map is rebuilt when offline mode toggles).
+            LaunchedEffect(floodData, mapReference) {
                 mapReference?.getStyle { style ->
                     val sourceId = "flood-source"
                     val layerId = "flood-layer"
@@ -561,7 +593,9 @@ fun AnalyticsView(viewModel: GisViewModel) {
             Spacer(modifier = Modifier.height(8.dp))
 
             analytics!!.muniBreakdown.forEach { muni ->
-                val maxExposed = analytics!!.muniBreakdown.first().exposedHH
+                // First() is the maximum (breakdown is sorted desc); guard
+                // against division by zero when all exposures are 0.
+                val maxExposed = analytics!!.muniBreakdown.first().exposedHH.coerceAtLeast(1)
                 Column(modifier = Modifier.padding(vertical = 8.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),

@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Map, LayoutDashboard, AlertTriangle, FileText,
-  Building2, Layers, Shield, ChevronLeft, ChevronRight,
+  Building2, Layers, ChevronLeft, ChevronRight,
   Activity, Radio, ClipboardList, Users as UsersIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cnpdrrmceoc } from '@/lib/cnpdrrmceoc';
 import { useAuth } from '@/lib/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Users as UsersIcon, UserPlus, Shield, HardHat, User, Trash2, Copy, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { apiPost } from '@/lib/api';
 
 export default function UserManagement() {
   const { user: currentUser } = useAuth();
@@ -42,10 +42,9 @@ export default function UserManagement() {
 
   const inviteStaffMutation = useMutation({
     mutationFn: async (data) => {
-      const functions = getFunctions();
-      const inviteStaff = httpsCallable(functions, 'inviteStaff');
-      const result = await inviteStaff(data);
-      return result.data;
+      // Free-route: the staff invite workflow runs on a Vercel API route
+      // (replaces the inviteStaff Cloud Function, which requires Blaze).
+      return apiPost('/api/invite-staff', data);
     },
     onSuccess: (data) => {
       setInviteLink(data.inviteLink);

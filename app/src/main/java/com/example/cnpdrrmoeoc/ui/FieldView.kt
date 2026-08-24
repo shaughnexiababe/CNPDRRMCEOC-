@@ -13,6 +13,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,9 +23,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.cnpdrrmoeoc.gis.CamNorteGeography
+import com.example.cnpdrrmoeoc.ui.components.Base64Photo
+import com.example.cnpdrrmoeoc.util.PhotoCompressor
 import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.*
 
 @SuppressLint("MissingPermission")
 @Composable
@@ -40,6 +47,7 @@ fun FieldView(viewModel: GisViewModel = hiltViewModel()) {
     
     var expandedMuni by remember { mutableStateOf(false) }
     var expandedType by remember { mutableStateOf(false) }
+    var expandedBrgy by remember { mutableStateOf(false) }
     
     val context = LocalContext.current
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
@@ -78,6 +86,58 @@ fun FieldView(viewModel: GisViewModel = hiltViewModel()) {
         }
     }
 
+    // --- Photo attachments (free-route: inline base64 data URLs) ---
+    val photoDataUrls = remember { mutableStateListOf<String>() }
+    val photoScope = rememberCoroutineScope()
+
+    // Camera via FileProvider + TakePicture (no CAMERA permission needed —
+    // the system camera app handles the capture).
+    var pendingCameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    val cameraLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { ok ->
+        val uri = pendingCameraUri
+        if (ok && uri != null) {
+            // Compress off the main thread (decode + JPEG encode)
+            photoScope.launch(Dispatchers.Default) {
+                val compressed = PhotoCompressor.compressToDataUrl(context, uri)
+                withContext(Dispatchers.Main) {
+                    if (compressed != null && photoDataUrls.size < 2) {
+                        photoDataUrls.add(compressed)
+                    } else if (compressed == null) {
+                        Toast.makeText(context, "Photo too large — try another.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+        pendingCameraUri = null
+    }
+
+    // Gallery (system Photo Picker — needs no storage permission on 13+;
+    // limited to 2 picks)
+    val galleryLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickMultipleVisualMedia(maxItems = 2)
+    ) { uris ->
+        photoScope.launch(Dispatchers.Default) {
+            uris.take(2).forEach { uri ->
+                val compressed = PhotoCompressor.compressToDataUrl(context, uri)
+                if (compressed != null) {
+                    withContext(Dispatchers.Main) {
+                        if (photoDataUrls.size < 2) photoDataUrls.add(compressed)
+                    }
+                }
+            }
+        }
+    }
+
+    fun launchCamera() {
+        val dir = java.io.File(context.cacheDir, "camera").apply { mkdirs() }
+        val file = java.io.File(dir, "capture_${System.currentTimeMillis()}.jpg")
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        pendingCameraUri = uri
+        cameraLauncher.launch(uri)
+    }
+
     val submissionStatus by viewModel.submissionStatus.collectAsState(initial = null)
 
     LaunchedEffect(submissionStatus) {
@@ -89,8 +149,9 @@ fun FieldView(viewModel: GisViewModel = hiltViewModel()) {
                 barangay = ""
                 latitude = null
                 longitude = null
+                photoDataUrls.clear()
             } else {
-                Toast.makeText(context, "Failed to submit report.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Failed to submit report — saved offline for auto-retry.", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -171,6 +232,7 @@ fun FieldView(viewModel: GisViewModel = hiltViewModel()) {
                         text = { Text(muni.name) },
                         onClick = {
                             municipality = muni.name
+                            barangay = "" // reset barangay when municipality changes
                             expandedMuni = false
                         }
                     )
@@ -178,12 +240,43 @@ fun FieldView(viewModel: GisViewModel = hiltViewModel()) {
             }
         }
 
-        OutlinedTextField(
-            value = barangay,
-            onValueChange = { barangay = it },
-            label = { Text("Barangay / Sitio") },
-            modifier = Modifier.fillMaxWidth()
-        )
+        // Barangay picker bound to the official 282-barangay reference list
+        // (was a free-text field producing inconsistent spellings).
+        val barangays = CamNorteGeography.BARANGAYS[municipality] ?: emptyList()
+        if (barangays.isNotEmpty()) {
+            Box {
+                OutlinedTextField(
+                    value = barangay,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Barangay") },
+                    modifier = Modifier.fillMaxWidth(),
+                    trailingIcon = {
+                        IconButton(onClick = { expandedBrgy = true }) {
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                        }
+                    }
+                )
+                DropdownMenu(expanded = expandedBrgy, onDismissRequest = { expandedBrgy = false }) {
+                    barangays.forEach { b ->
+                        DropdownMenuItem(
+                            text = { Text(b) },
+                            onClick = {
+                                barangay = b
+                                expandedBrgy = false
+                            }
+                        )
+                    }
+                }
+            }
+        } else {
+            OutlinedTextField(
+                value = barangay,
+                onValueChange = { barangay = it },
+                label = { Text("Barangay / Sitio") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
         Box {
             OutlinedTextField(
@@ -219,10 +312,62 @@ fun FieldView(viewModel: GisViewModel = hiltViewModel()) {
             minLines = 3
         )
 
+        if (latitude == null) {
+            Text(
+                "Tip: attach GPS coordinates so the EOC can locate this incident on the map.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+
+        // --- Photo attachments (max 2, stored inline — no Storage bucket) ---
+        Text("Photos (optional, max 2)", style = MaterialTheme.typography.titleSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            photoDataUrls.forEachIndexed { index, url ->
+                Box {
+                    Base64Photo(url, size = 72.dp)
+                    IconButton(
+                        onClick = { photoDataUrls.removeAt(index) },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(22.dp)
+                    ) {
+                        Icon(Icons.Default.Clear, contentDescription = "Remove photo", tint = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = { launchCamera() },
+                enabled = photoDataUrls.size < 2
+            ) {
+                Icon(Icons.Default.AddAPhoto, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp)); Text("Camera")
+            }
+            OutlinedButton(
+                onClick = {
+                    galleryLauncher.launch(
+                        androidx.activity.result.PickVisualMediaRequest(
+                            ActivityResultContracts.PickVisualMedia.ImageOnly
+                        )
+                    )
+                },
+                enabled = photoDataUrls.size < 2
+            ) {
+                Icon(Icons.Default.AddCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp)); Text("Gallery")
+            }
+        }
+
         Button(
             onClick = {
                 if (title.isNotBlank() && description.isNotBlank() && municipality.isNotBlank()) {
-                    viewModel.submitReport(title, description, incidentType, municipality, barangay, latitude, longitude)
+                    viewModel.submitReport(
+                        title, description, incidentType, municipality, barangay,
+                        latitude, longitude,
+                        photoUrls = photoDataUrls.toList()
+                    )
                 } else {
                     Toast.makeText(context, "Please fill required fields", Toast.LENGTH_SHORT).show()
                 }

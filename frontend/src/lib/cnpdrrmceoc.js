@@ -1,5 +1,4 @@
-import { createClient } from './sdk-shim';
+import { createAppClient } from './sdk-shim';
 
-// Create a unified client instance for the entire app
-// This now uses the Firebase-backed SDK
-export const cnpdrrmceoc = createClient();
+// Create a unified client instance for the entire app (Firebase-backed)
+export const cnpdrrmceoc = createAppClient();

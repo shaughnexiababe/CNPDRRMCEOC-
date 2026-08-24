@@ -2,6 +2,7 @@ package com.example.cnpdrrmoeoc.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.cnpdrrmoeoc.BuildConfig
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.ai.client.generativeai.type.content
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -35,10 +36,19 @@ class ChatViewModel @Inject constructor() : ViewModel() {
         _botAction.value = null
     }
 
-    private val generativeModel = GenerativeModel(
-        modelName = "gemini-1.5-flash",
-        apiKey = "AIzaSyD0yM6OogXKluE1esMrPR7ciKMBPJcXCl0" // Placeholder Key
-    )
+    // API key is injected at build time from the GEMINI_API_KEY property in
+    // local.properties / gradle.properties (see app/build.gradle.kts).
+    // NEVER hardcode keys in source — anything committed to git must be
+    // treated as leaked and rotated immediately.
+    private val geminiApiKey: String = BuildConfig.GEMINI_API_KEY
+
+    private val generativeModel: GenerativeModel? =
+        if (geminiApiKey.isNotBlank()) {
+            GenerativeModel(
+                modelName = "gemini-2.0-flash",
+                apiKey = geminiApiKey
+            )
+        } else null
 
     private val systemInstruction = """
         You are "Bantay", the AI wingman for the CNPDRRMEOC app. 
@@ -56,11 +66,21 @@ class ChatViewModel @Inject constructor() : ViewModel() {
     fun sendMessage(userText: String, locationContext: String, activeIncidents: String) {
         val userMessage = ChatMessage(userText, isUser = true)
         _messages.value = _messages.value + userMessage
-        
+
+        val model = generativeModel
+        if (model == null) {
+            _messages.value = _messages.value + ChatMessage(
+                "Pasensya na — the AI service is not configured on this build (missing Gemini API key). " +
+                    "For emergencies, call the PDRRMO hotline: (054) 440-1234.",
+                isUser = false
+            )
+            return
+        }
+
         viewModelScope.launch {
             _uiState.value = ChatUiState.Loading
             try {
-                val response = generativeModel.generateContent(
+                val response = model.generateContent(
                     content {
                         text(systemInstruction)
                         text("User Location: $locationContext")

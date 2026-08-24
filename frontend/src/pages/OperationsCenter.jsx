@@ -8,11 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
 } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { AlertTriangle, Clock, MapPin, Users, CheckCircle2, ExternalLink, Radio, Send, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { AlertTriangle, Clock, MapPin, Users, ExternalLink, Radio, Send } from 'lucide-react';
+import { cn, fsDate } from '@/lib/utils';
 import moment from 'moment';
 import GISMap from '@/components/GISMap';
 
@@ -321,7 +321,7 @@ export default function OperationsCenter() {
                       </div>
                       <p className="text-[10px] text-muted-foreground">
                         {alert.type} • {alert.affected_municipality || 'Province-wide'}
-                        {alert.issued_at && ` • ${moment(alert.issued_at).format('MMM D, HH:mm')}`}
+                        {fsDate(alert.issued_at) && ` • ${moment(fsDate(alert.issued_at)).format('MMM D, HH:mm')}`}
                       </p>
                     </div>
                   </div>

@@ -1,21 +1,10 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { deriveHazardExposureData } from '@/lib/analytics-engine';
 
-const exposureData = [
-  { municipality: 'Daet', flood: 15420, landslide: 450, storm_surge: 8340 },
-  { municipality: 'Labo', flood: 8560, landslide: 12340, storm_surge: 0 },
-  { municipality: 'Jose Panganiban', flood: 5100, landslide: 4560, storm_surge: 3200 },
-  { municipality: 'Paracale', flood: 4450, landslide: 5340, storm_surge: 4100 },
-  { municipality: 'Mercedes', flood: 6210, landslide: 230, storm_surge: 9560 },
-  { municipality: 'Vinzons', flood: 5340, landslide: 1450, storm_surge: 6890 },
-  { municipality: 'Basud', flood: 3890, landslide: 4120, storm_surge: 1340 },
-  { municipality: 'Capalonga', flood: 2560, landslide: 4340, storm_surge: 5120 },
-  { municipality: 'Santa Elena', flood: 4100, landslide: 2560, storm_surge: 3200 },
-  { municipality: 'Talisay', flood: 3890, landslide: 1230, storm_surge: 2890 },
-  { municipality: 'San Lorenzo Ruiz', flood: 1100, landslide: 6230, storm_surge: 0 },
-  { municipality: 'San Vicente', flood: 1200, landslide: 3230, storm_surge: 0 },
-];
+// Derived from the shared PSA 2020 / MGB hazard baseline (was hardcoded)
+const exposureData = deriveHazardExposureData();
 
 export default function HazardExposureChart() {
   return (

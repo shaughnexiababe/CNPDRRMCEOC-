@@ -5,6 +5,86 @@
 
 import { MUNICIPALITY_DATA, MUNICIPALITIES } from './constants';
 
+/** Susceptibility multipliers — synchronized with the Android app's
+ *  GisViewModel.runProvincialAnalysis (0.45/0.30/0.15/0.05). */
+export const SUSCEPTIBILITY_MULTIPLIERS = {
+  'very_high': 0.45,
+  'high': 0.30,
+  'medium': 0.15,
+  'moderate': 0.15,
+  'low': 0.05,
+  'none': 0
+};
+
+const HH_SIZE = 4.5; // PSA average household size used across the project
+
+const SEVERITY_SCORE = { very_high: 85, high: 70, medium: 45, moderate: 45, low: 20, none: 0 };
+
+/**
+ * Baseline municipality statistics derived from the shared hazard profile.
+ * Single source of truth for dashboard widgets that used to hardcode
+ * fictional population and exposure numbers.
+ */
+export const deriveMunicipalityStats = () => {
+  return MUNICIPALITIES.map(name => {
+    const baseline = MUNICIPALITY_DATA[name];
+    if (!baseline) return null;
+    const hazards = baseline.hazards || {};
+    const riskScore = Math.max(
+      ...['flood', 'landslide', 'storm_surge', 'tsunami'].map(h => SEVERITY_SCORE[hazards[h]] ?? 0)
+    );
+    return {
+      name,
+      population: baseline.population,
+      households: Math.round(baseline.population / HH_SIZE),
+      riskScore
+    };
+  }).filter(Boolean);
+};
+
+/**
+ * Household exposure per municipality & hazard type, derived from the
+ * shared baseline. Used by dashboard charts (previously hardcoded).
+ */
+export const deriveHazardExposureData = () => {
+  return MUNICIPALITIES.map(name => {
+    const baseline = MUNICIPALITY_DATA[name];
+    if (!baseline) return null;
+    const hh = baseline.population / HH_SIZE;
+    const m = (level) => SUSCEPTIBILITY_MULTIPLIERS[level] ?? 0;
+    return {
+      municipality: name,
+      flood: Math.round(hh * m(baseline.hazards.flood)),
+      landslide: Math.round(hh * m(baseline.hazards.landslide)),
+      storm_surge: Math.round(hh * m(baseline.hazards.storm_surge))
+    };
+  }).filter(Boolean);
+};
+
+/**
+ * Exposed households grouped by the severity of exposure.
+ */
+export const deriveSeverityDistribution = () => {
+  const buckets = { low: 0, medium: 0, moderate: 0, high: 0, very_high: 0 };
+  MUNICIPALITIES.forEach(name => {
+    const baseline = MUNICIPALITY_DATA[name];
+    if (!baseline) return;
+    const hh = baseline.population / HH_SIZE;
+    ['flood', 'landslide', 'storm_surge'].forEach(h => {
+      const level = baseline.hazards[h];
+      if (level && buckets[level] !== undefined) {
+        buckets[level] += Math.round(hh * (SUSCEPTIBILITY_MULTIPLIERS[level] ?? 0));
+      }
+    });
+  });
+  return [
+    { name: 'Low', value: buckets.low, color: '#22C55E' },
+    { name: 'Moderate', value: buckets.moderate, color: '#F59E0B' },
+    { name: 'High', value: buckets.high, color: '#F97316' },
+    { name: 'Very High', value: buckets.very_high, color: '#EF4444' }
+  ];
+};
+
 /**
  * PREDICTIVE ANALYTICS
  * Predicts potential hazard impacts based on forecast parameters
@@ -22,13 +102,12 @@ export const predictHazardImpact = (forecast) => {
 
     // 1. Flood Prediction (Rainfall + Baseline Susceptibility)
     // Threshold: 100mm/24h triggers "High" risk in susceptible areas
-    // Synchronized with Android PDRRMO Decision Support logic (0.45 multiplier for Very High)
     const rainFactor = Math.min(rainfall24h / 150, 1.2);
-    const floodSuscMult = { 'very_high': 0.45, 'high': 0.30, 'medium': 0.15, 'low': 0.05, 'none': 0 }[baseline.hazards.flood] || 0;
+    const floodSuscMult = SUSCEPTIBILITY_MULTIPLIERS[baseline.hazards.flood] || 0;
     floodProb = rainFactor * (floodSuscMult / 0.45) * 100;
 
     // 2. Landslide Prediction (Heavy Rain + Slope/Baseline)
-    const landslideSuscMult = { 'very_high': 0.45, 'high': 0.30, 'medium': 0.15, 'low': 0.05, 'none': 0 }[baseline.hazards.landslide] || 0;
+    const landslideSuscMult = SUSCEPTIBILITY_MULTIPLIERS[baseline.hazards.landslide] || 0;
     landslideProb = rainFactor * (landslideSuscMult / 0.45) * 100;
 
     // 3. Storm Surge (Wind Speed + Tide + Coastal Baseline)

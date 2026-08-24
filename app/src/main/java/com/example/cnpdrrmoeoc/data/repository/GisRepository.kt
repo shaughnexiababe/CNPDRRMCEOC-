@@ -1,24 +1,25 @@
 package com.example.cnpdrrmoeoc.data.repository
 
 import android.content.Context
+import android.util.Log
 import com.example.cnpdrrmoeoc.data.Assignment
 import com.example.cnpdrrmoeoc.data.CheckIn
 import com.example.cnpdrrmoeoc.data.HazardAlert
 import com.example.cnpdrrmoeoc.data.Incident
+import com.example.cnpdrrmoeoc.data.IncidentReport
 import com.example.cnpdrrmoeoc.data.Unit
 import com.example.cnpdrrmoeoc.data.User
-import com.example.cnpdrrmoeoc.data.CriticalFacility
+import com.example.cnpdrrmoeoc.data.Facility
 import com.example.cnpdrrmoeoc.data.ShiftNote
 import com.example.cnpdrrmoeoc.data.local.dao.IncidentDao
 import com.example.cnpdrrmoeoc.data.remote.AlertApiService
 import com.example.cnpdrrmoeoc.data.remote.GeoRiskApiService
-import com.example.cnpdrrmoeoc.data.remote.IncidentApiService
+import com.example.cnpdrrmoeoc.data.remote.NotifyApi
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.GeoPoint
-import com.google.firebase.firestore.SetOptions
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -34,11 +35,15 @@ class GisRepository @Inject constructor(
     private val incidentDao: IncidentDao,
     private val geoRiskApi: GeoRiskApiService,
     private val alertApi: AlertApiService,
-    private val incidentApi: IncidentApiService
+    private val notifyApi: NotifyApi
 ) {
+    companion object { private const val TAG = "GisRepository" }
+
     /**
      * Real-time listener for incidents.
      * Scoped by municipality for citizens, unfiltered for EOC/Admin.
+     * Listener errors degrade to an empty list instead of propagating an
+     * exception that would crash the collecting StateFlows.
      */
     fun getIncidents(municipality: String? = null): Flow<List<Incident>> = callbackFlow {
         var query = firestore.collection("incidents")
@@ -50,7 +55,8 @@ class GisRepository @Inject constructor(
 
         val subscription = query.addSnapshotListener { snapshot, error ->
             if (error != null) {
-                close(error)
+                Log.w(TAG, "Incident listener error", error)
+                trySend(emptyList())
                 return@addSnapshotListener
             }
             if (snapshot != null) {
@@ -76,7 +82,8 @@ class GisRepository @Inject constructor(
 
         val subscription = query.addSnapshotListener { snapshot, error ->
             if (error != null) {
-                close(error)
+                Log.w(TAG, "Alert listener error", error)
+                trySend(emptyList())
                 return@addSnapshotListener
             }
             if (snapshot != null) {
@@ -95,7 +102,8 @@ class GisRepository @Inject constructor(
         val subscription = firestore.collection("units")
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    Log.w(TAG, "Unit listener error", error)
+                    trySend(emptyList())
                     return@addSnapshotListener
                 }
                 if (snapshot != null) {
@@ -113,7 +121,8 @@ class GisRepository @Inject constructor(
             .whereIn("status", listOf("assigned", "enroute", "on_scene"))
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    Log.w(TAG, "Assignment listener error", error)
+                    trySend(emptyList())
                     return@addSnapshotListener
                 }
                 if (snapshot != null) {
@@ -121,6 +130,45 @@ class GisRepository @Inject constructor(
                 }
             }
         awaitClose { subscription.remove() }
+    }
+
+    /**
+     * Marks an incident as verified by EOC personnel.
+     * (Referenced by OperationsCenterView / GisViewModel.verifyIncident —
+     * was missing, which broke the build.)
+     */
+    suspend fun verifyIncident(incidentId: String, verifierId: String): Boolean {
+        return try {
+            firestore.collection("incidents").document(incidentId).update(
+                mapOf(
+                    "status" to "verified",
+                    "verified_by" to verifierId,
+                    "updated_at" to FieldValue.serverTimestamp()
+                )
+            ).await()
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "verifyIncident failed", e)
+            false
+        }
+    }
+
+    /**
+     * Marks an incident as resolved (EOC personnel).
+     */
+    suspend fun resolveIncident(incidentId: String): Boolean {
+        return try {
+            firestore.collection("incidents").document(incidentId).update(
+                mapOf(
+                    "status" to "resolved",
+                    "updated_at" to FieldValue.serverTimestamp()
+                )
+            ).await()
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "resolveIncident failed", e)
+            false
+        }
     }
 
     /**
@@ -147,12 +195,14 @@ class GisRepository @Inject constructor(
                 }
 
                 // 1. Update Unit
-                transaction.update(unitRef, "status", "dispatched")
-                transaction.update(unitRef, "updated_at", FieldValue.serverTimestamp())
+                transaction.update(unitRef,
+                    "status", "dispatched",
+                    "updated_at", FieldValue.serverTimestamp())
 
                 // 2. Update Incident
-                transaction.update(incidentRef, "status", "dispatched")
-                transaction.update(incidentRef, "updated_at", FieldValue.serverTimestamp())
+                transaction.update(incidentRef,
+                    "status", "dispatched",
+                    "updated_at", FieldValue.serverTimestamp())
 
                 // 3. Create Assignment
                 val assignmentData = Assignment(
@@ -177,23 +227,25 @@ class GisRepository @Inject constructor(
     /**
      * Updates a unit's location and records it in history.
      * Writes to units/{unitId} and units/{unitId}/location_history/ in a batch.
+     * Field names match the `Unit` model (previously wrote
+     * `last_location_at` while the model reads `last_location_update`).
      */
     suspend fun updateUnitLocation(unitId: String, lat: Double, lon: Double): Boolean {
         return try {
             val point = GeoPoint(lat, lon)
             val now = Timestamp.now()
-            
+
             val unitRef = firestore.collection("units").document(unitId)
             val historyRef = unitRef.collection("location_history").document()
-            
+
             firestore.runBatch { batch ->
                 // 1. Update latest on parent
-                batch.update(unitRef, 
+                batch.update(unitRef,
                     "current_location", point,
-                    "last_location_at", now,
+                    "last_location_update", now,
                     "updated_at", FieldValue.serverTimestamp()
                 )
-                
+
                 // 2. Record in subcollection
                 batch.set(historyRef, mapOf(
                     "location" to point,
@@ -202,6 +254,7 @@ class GisRepository @Inject constructor(
             }.await()
             true
         } catch (e: Exception) {
+            Log.e(TAG, "updateUnitLocation failed", e)
             false
         }
     }
@@ -209,65 +262,159 @@ class GisRepository @Inject constructor(
     /**
      * Advances the status of an assignment.
      * assigned -> enroute -> on_scene -> completed
+     *
+     * The unit stays "dispatched" for the whole mission (enroute/on_scene
+     * are ASSIGNMENT statuses — the old code wrote assignment statuses into
+     * units.status twice and corrupted the dispatcher's availability list).
+     * Incident moves to "responding" once a crew is on scene.
      */
-    suspend fun advanceAssignmentStatus(assignmentId: String, unitId: String, currentStatus: String): Boolean {
+    suspend fun advanceAssignmentStatus(
+        assignmentId: String,
+        unitId: String,
+        currentStatus: String,
+        incidentId: String? = null
+    ): Boolean {
         val nextStatus = when (currentStatus) {
             "assigned" -> "enroute"
             "enroute" -> "on_scene"
             "on_scene" -> "completed"
             else -> return false
         }
-        
+
         return try {
             firestore.runTransaction { transaction ->
                 val assignmentRef = firestore.collection("assignments").document(assignmentId)
                 val unitRef = firestore.collection("units").document(unitId)
-                
-                transaction.update(assignmentRef, "status", nextStatus)
-                transaction.update(assignmentRef, "updated_at", FieldValue.serverTimestamp())
-                
-                // Mirror status to unit
-                transaction.update(unitRef, "status", nextStatus)
-                
-                // Special case: if completed, mark unit as available
+
+                transaction.update(assignmentRef,
+                    "status", nextStatus,
+                    "updated_at", FieldValue.serverTimestamp())
+
+                if (nextStatus == "on_scene" && incidentId != null) {
+                    transaction.update(
+                        firestore.collection("incidents").document(incidentId),
+                        "status", "responding",
+                        "updated_at", FieldValue.serverTimestamp()
+                    )
+                }
+
                 if (nextStatus == "completed") {
-                    transaction.update(unitRef, "status", "available")
+                    transaction.update(unitRef,
+                        "status", "available",
+                        "updated_at", FieldValue.serverTimestamp())
                     transaction.update(assignmentRef, "completed_at", FieldValue.serverTimestamp())
                 }
             }.await()
             true
         } catch (e: Exception) {
+            Log.e(TAG, "advanceAssignmentStatus failed", e)
             false
         }
     }
 
     /**
-     * Submits a field incident report directly to Firestore.
+     * Submits a field incident report.
+     * On failure (typically offline), the report is queued into the Room
+     * outbox and replayed by [syncPendingReports]; returns false so the UI
+     * can tell the user the report was saved for later delivery.
      */
     suspend fun submitIncidentReport(incident: Incident): Boolean {
         return try {
-            firestore.collection("incidents").add(incident).await()
+            val ref = firestore.collection("incidents").add(incident).await()
+            // Critical/SOS reports notify EOC staff devices via the free
+            // Vercel API route (replaces the Firestore-trigger Cloud Function).
+            if (incident.type == "sos" || incident.priority == "critical") {
+                notifyApi.notifyCriticalIncident(ref.id)
+            }
             true
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.w(TAG, "Online submit failed — queueing offline", e)
+            queueOfflineReport(incident)
             false
         }
+    }
+
+    private suspend fun queueOfflineReport(incident: Incident) {
+        try {
+            incidentDao.insertIncident(
+                IncidentReport(
+                    title = incident.title,
+                    description = incident.description,
+                    type = incident.type,
+                    municipality = incident.municipality,
+                    barangay = incident.barangay,
+                    latitude = incident.latitude,
+                    longitude = incident.longitude,
+                    reportedById = incident.reported_by_id,
+                    // Joined inline data-URL photos (newline-separated; data URLs
+                    // never contain newlines). Guards the doc from exceeding
+                    // Firestore's 1MiB limit on replay.
+                    photoUrls = incident.photo_urls.joinToString("\n").take(780_000),
+                    createdDate = System.currentTimeMillis()
+                )
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to queue offline report", e)
+        }
+    }
+
+    /**
+     * Replays queued offline reports to Firestore. Safe to call at login /
+     * on connectivity restore.
+     */
+    suspend fun syncPendingReports(): Int {
+        val pending = try { incidentDao.getPendingOnce() } catch (e: Exception) { emptyList() }
+        var synced = 0
+        for (row in pending) {
+            try {
+                val incident = Incident(
+                    title = row.title,
+                    description = row.description,
+                    type = row.type,
+                    municipality = row.municipality,
+                    barangay = row.barangay,
+                    latitude = row.latitude,
+                    longitude = row.longitude,
+                    location = if (row.latitude != null && row.longitude != null)
+                        GeoPoint(row.latitude, row.longitude) else null,
+                    status = "reported",
+                    priority = if (row.type == "sos") "critical" else "medium",
+                    reported_by_id = row.reportedById,
+                    photo_urls = row.photoUrls.split("\n").filter { it.isNotBlank() }.take(2),
+                    created_at = Timestamp(java.util.Date(row.createdDate)),
+                    updated_at = Timestamp.now()
+                )
+                firestore.collection("incidents").add(incident).await()
+                incidentDao.deleteById(row.id)
+                synced++
+            } catch (e: Exception) {
+                // Still offline or rules rejected — leave the row queued.
+                break
+            }
+        }
+        return synced
     }
 
     /**
      * Real-time listener for operational evacuation centers.
+     * Maps to the plain `Facility` model (Firestore needs defaults on every
+     * field) and stamps each doc with its Firestore document id.
      */
-    fun getEvacuationCenters(): Flow<List<CriticalFacility>> = callbackFlow {
+    fun getEvacuationCenters(): Flow<List<Facility>> = callbackFlow {
         val subscription = firestore.collection("facilities")
             .whereEqualTo("type", "evacuation_center")
             .whereEqualTo("status", "operational")
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    Log.w(TAG, "Evac center listener error", error)
+                    trySend(emptyList())
                     return@addSnapshotListener
                 }
                 if (snapshot != null) {
-                    trySend(snapshot.toObjects(CriticalFacility::class.java))
+                    val centers = snapshot.documents.mapNotNull { doc ->
+                        doc.toObject(Facility::class.java)?.copy(id = doc.id)
+                    }
+                    trySend(centers)
                 }
             }
         awaitClose { subscription.remove() }
@@ -282,7 +429,8 @@ class GisRepository @Inject constructor(
             .limit(20)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    Log.w(TAG, "Shift notes listener error", error)
+                    trySend(emptyList())
                     return@addSnapshotListener
                 }
                 if (snapshot != null) {
@@ -312,7 +460,8 @@ class GisRepository @Inject constructor(
             .orderBy("created_at", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    Log.w(TAG, "Users listener error", error)
+                    trySend(emptyList())
                     return@addSnapshotListener
                 }
                 if (snapshot != null) {
@@ -338,7 +487,6 @@ class GisRepository @Inject constructor(
 
     /**
      * Records a citizen "I'm safe" check-in.
-     * Updates the user document with last_checkin_at and writes a record to checkins collection.
      */
     suspend fun checkInSafe(userId: String, alertId: String, municipality: String, barangay: String): Boolean {
         return try {
@@ -351,19 +499,17 @@ class GisRepository @Inject constructor(
                 status = "safe",
                 created_at = now
             )
-            
+
             firestore.runBatch { batch ->
-                // 1. Create check-in record
                 val checkInRef = firestore.collection("checkins").document()
                 batch.set(checkInRef, checkIn)
-                
-                // 2. Update user doc with last check-in timestamp
+
                 val userRef = firestore.collection("users").document(userId)
                 batch.update(userRef, "last_checkin_at", now)
             }.await()
             true
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "checkInSafe failed", e)
             false
         }
     }
@@ -387,7 +533,7 @@ class GisRepository @Inject constructor(
             val response = geoRiskApi.queryFloodHazard(bbox = bbox)
             response.string()
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.w(TAG, "fetchFloodData remote failed", e)
             null
         }
     }
@@ -403,7 +549,7 @@ class GisRepository @Inject constructor(
             val response = geoRiskApi.queryLandslideHazard(bbox = bbox)
             response.string()
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.w(TAG, "fetchLandslideData remote failed", e)
             null
         }
     }
@@ -416,7 +562,6 @@ class GisRepository @Inject constructor(
             val response = alertApi.getLatestEarthquakes()
             response.string()
         } catch (e: Exception) {
-            e.printStackTrace()
             null
         }
     }
@@ -429,7 +574,6 @@ class GisRepository @Inject constructor(
             val response = alertApi.getPagasaAlerts()
             response.string()
         } catch (e: Exception) {
-            e.printStackTrace()
             null
         }
     }

@@ -2,7 +2,7 @@ import React, { useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cnpdrrmceoc } from '@/lib/cnpdrrmceoc';
 import {
-  AlertTriangle, Users, Building2, MapPin,
+  AlertTriangle, Building2, MapPin,
   Shield, Activity, TrendingUp
 } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
@@ -30,22 +30,22 @@ export default function StrategicDashboard() {
 
   const { data: alerts = [] } = useQuery({
     queryKey: ['alerts'],
-    queryFn: () => cnpdrrmceoc.entities.HazardAlert.list('-created_date', 50),
+    queryFn: () => cnpdrrmceoc.entities.HazardAlert.list('-created_at', 50),
   });
 
   const { data: facilities = [] } = useQuery({
     queryKey: ['facilities'],
-    queryFn: () => cnpdrrmceoc.entities.Facility.list('-created_date', 200),
+    queryFn: () => cnpdrrmceoc.entities.Facility.list('-created_at', 200),
   });
 
   const { data: incidents = [] } = useQuery({
     queryKey: ['incidents'],
-    queryFn: () => cnpdrrmceoc.entities.IncidentReport.list('-created_date', 50),
+    queryFn: () => cnpdrrmceoc.entities.Incident.list('-created_at', 50),
   });
 
   const { data: layers = [] } = useQuery({
     queryKey: ['layers'],
-    queryFn: () => cnpdrrmceoc.entities.HazardLayer.list('-created_date', 100),
+    queryFn: () => cnpdrrmceoc.entities.HazardLayer.list('-created_at', 100),
   });
 
   // Setup real-time Firestore listener for new incidents
@@ -131,10 +131,10 @@ export default function StrategicDashboard() {
         <RiskSeverityPie />
       </div>
 
-      {/* Municipality breakdown + Assessments Panel */}
+      {/* Municipality breakdown + Predictive + Assessments */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-1">
-          <AgencyDataPanel />
+          <MunicipalityBreakdown />
         </div>
         <div className="lg:col-span-1">
            <Card className="border-primary/20 bg-primary/5">
@@ -166,6 +166,9 @@ export default function StrategicDashboard() {
           <AssessmentsPanel />
         </div>
       </div>
+
+      {/* Agency integration links */}
+      <AgencyDataPanel />
     </div>
   );
 }

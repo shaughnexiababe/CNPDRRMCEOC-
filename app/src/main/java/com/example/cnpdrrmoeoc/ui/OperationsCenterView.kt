@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.cnpdrrmoeoc.data.Incident
 import com.example.cnpdrrmoeoc.data.Unit as PdrrmoUnit
+import com.example.cnpdrrmoeoc.ui.components.Base64Photo
 import com.example.cnpdrrmoeoc.ui.components.MapViewContainer
 import kotlinx.coroutines.delay
 
@@ -70,7 +71,8 @@ fun OperationsCenterView(viewModel: GisViewModel = hiltViewModel()) {
                 IncidentOpsItem(
                     incident = incident,
                     onVerify = { viewModel.verifyIncident(incident.id) },
-                    onDispatch = { selectedIncidentForDispatch = incident }
+                    onDispatch = { selectedIncidentForDispatch = incident },
+                    onResolve = { viewModel.resolveIncident(incident.id) }
                 )
             }
         }
@@ -103,7 +105,8 @@ fun StatCard(modifier: Modifier, label: String, value: String, color: Color) {
 fun IncidentOpsItem(
     incident: Incident,
     onVerify: () -> Unit,
-    onDispatch: () -> Unit
+    onDispatch: () -> Unit,
+    onResolve: () -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -127,6 +130,18 @@ fun IncidentOpsItem(
             
             Spacer(modifier = Modifier.height(8.dp))
             Text(incident.status.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+
+            // Inline base64 photo attachments (free-route storage)
+            if (incident.photo_urls.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    incident.photo_urls.take(4).forEach { url ->
+                        if (url.startsWith("data:")) {
+                            Base64Photo(url, size = 64.dp)
+                        }
+                    }
+                }
+            }
             
             Spacer(modifier = Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -138,13 +153,19 @@ fun IncidentOpsItem(
                     }
                 } else if (incident.status == "verified") {
                     Button(
-                        onClick = onDispatch, 
+                        onClick = onDispatch,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                     ) {
                         Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
                         Text("Dispatch Unit")
+                    }
+                }
+
+                if (incident.status == "dispatched" || incident.status == "responding") {
+                    TextButton(onClick = onResolve) {
+                        Text("Mark Resolved")
                     }
                 }
             }

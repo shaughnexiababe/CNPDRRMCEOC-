@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
@@ -9,14 +8,18 @@ const DefaultFallback = () => (
   </div>
 );
 
-export default function ProtectedRoute({ fallback = <DefaultFallback />, unauthenticatedElement }) {
-  const { isAuthenticated, isLoadingAuth, authChecked, authError, checkUserAuth } = useAuth();
+const Forbidden = () => (
+  <div className="flex flex-col items-center justify-center py-24 text-center space-y-3">
+    <h2 className="text-xl font-bold">Access restricted</h2>
+    <p className="text-sm text-muted-foreground max-w-sm">
+      Your account role does not have permission to view this page. If you believe this is an error,
+      contact the PDRRM Office administrator.
+    </p>
+  </div>
+);
 
-  useEffect(() => {
-    if (!authChecked && !isLoadingAuth) {
-      checkUserAuth();
-    }
-  }, [authChecked, isLoadingAuth, checkUserAuth]);
+export default function ProtectedRoute({ fallback = <DefaultFallback />, unauthenticatedElement, roles }) {
+  const { user, isAuthenticated, isLoadingAuth, authChecked, authError } = useAuth();
 
   if (isLoadingAuth || !authChecked) {
     return fallback;
@@ -31,6 +34,16 @@ export default function ProtectedRoute({ fallback = <DefaultFallback />, unauthe
 
   if (!isAuthenticated) {
     return unauthenticatedElement;
+  }
+
+  // Role-based access control at the ROUTE level (not just sidebar hiding):
+  // previously a citizen could type /users or /layers directly and reach
+  // admin tooling.
+  if (roles && roles.length > 0) {
+    const effectiveRole = user?.role || 'citizen';
+    if (!roles.includes(effectiveRole)) {
+      return <Forbidden />;
+    }
   }
 
   return <Outlet />;

@@ -9,9 +9,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, MapPin, Users, Camera, Upload } from 'lucide-react';
-import { MUNICIPALITIES } from '@/lib/constants';
-import { cn } from '@/lib/utils';
+import { Plus, MapPin, Camera } from 'lucide-react';
+import { MUNICIPALITIES, BARANGAYS_BY_MUNICIPALITY } from '@/lib/constants';
+import { cn, fsDate } from '@/lib/utils';
+import { GeoPoint } from 'firebase/firestore';
+import { useAuth } from '@/lib/AuthContext';
+import { notifyBestEffort } from '@/lib/api';
 import moment from 'moment';
 
 const incidentTypes = [
@@ -35,6 +38,7 @@ const priorityStyles = {
 
 export default function FieldReports() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState({
@@ -47,30 +51,65 @@ export default function FieldReports() {
 
   const { data: incidents = [], isLoading } = useQuery({
     queryKey: ['incidents'],
-    queryFn: () => cnpdrrmceoc.entities.IncidentReport.list('-created_date', 100),
+    queryFn: () => cnpdrrmceoc.entities.Incident.list('-created_at', 100),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => cnpdrrmceoc.entities.IncidentReport.create({
-      ...data,
-      affected_families: data.affected_families ? Number(data.affected_families) : undefined,
-      affected_persons: data.affected_persons ? Number(data.affected_persons) : undefined,
-      latitude: data.latitude ? Number(data.latitude) : undefined,
-      longitude: data.longitude ? Number(data.longitude) : undefined,
-    }),
-    onSuccess: () => {
+    mutationFn: (data) => {
+      const lat = data.latitude ? Number(data.latitude) : undefined;
+      const lng = data.longitude ? Number(data.longitude) : undefined;
+      return cnpdrrmceoc.entities.Incident.create({
+        ...data,
+        affected_families: data.affected_families ? Number(data.affected_families) : undefined,
+        affected_persons: data.affected_persons ? Number(data.affected_persons) : undefined,
+        latitude: lat,
+        longitude: lng,
+        // Also store a Firestore GeoPoint so the Android app renders the
+        // same document (its model expects `location: GeoPoint`).
+        location: lat != null && lng != null ? new GeoPoint(lat, lng) : undefined,
+        reported_by_id: user?.id || undefined,
+        reported_by_name: data.reporter_name || user?.full_name || undefined,
+      });
+    },
+    onSuccess: (created, variables) => {
+      // Critical incidents notify EOC staff devices via the free-route API
+      // (replaces the Firestore-trigger Cloud Function).
+      if (created?.id && (variables?.priority === 'critical' || variables?.type === 'sos')) {
+        notifyBestEffort('/api/notify-critical-incident', { incidentId: created.id });
+      }
       queryClient.invalidateQueries({ queryKey: ['incidents'] });
       setOpen(false);
+      setForm({
+        title: '', type: 'flood', status: 'reported', priority: 'medium',
+        description: '', municipality: '', barangay: '',
+        reporter_name: '', reporter_contact: '',
+        affected_families: '', affected_persons: '',
+        latitude: '', longitude: '', photo_urls: [],
+      });
     },
   });
 
   const handlePhotoUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    // Free-route storage: photos are compressed to inline base64 (data URLs)
+    // and stored inside the incident document — no Cloud Storage bucket
+    // needed. Firestore docs max 1MiB, so cap at 2 photos.
+    if (form.photo_urls.length >= 2) {
+      alert('Maximum 2 photos per report (stored inline in the database).');
+      return;
+    }
     setUploading(true);
-    const { file_url } = await cnpdrrmceoc.integrations.Core.UploadFile({ file });
-    setForm(prev => ({ ...prev, photo_urls: [...prev.photo_urls, file_url] }));
-    setUploading(false);
+    try {
+      const { file_url } = await cnpdrrmceoc.uploadFile(file, 'incident_photos');
+      setForm(prev => ({ ...prev, photo_urls: [...prev.photo_urls, file_url] }));
+    } catch (err) {
+      console.error('Photo processing failed:', err);
+      alert(err.message || 'Photo processing failed. Please try a smaller image.');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
   };
 
   return (
@@ -122,7 +161,7 @@ export default function FieldReports() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs">Municipality</Label>
-                  <Select value={form.municipality} onValueChange={v => setForm({ ...form, municipality: v })}>
+                  <Select value={form.municipality} onValueChange={v => setForm({ ...form, municipality: v, barangay: '' })}>
                     <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
                     <SelectContent>
                       {MUNICIPALITIES.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
@@ -131,7 +170,18 @@ export default function FieldReports() {
                 </div>
                 <div>
                   <Label className="text-xs">Barangay</Label>
-                  <Input value={form.barangay} onChange={e => setForm({ ...form, barangay: e.target.value })} />
+                  <Select
+                    value={form.barangay}
+                    onValueChange={v => setForm({ ...form, barangay: v })}
+                    disabled={!form.municipality}
+                  >
+                    <SelectTrigger><SelectValue placeholder={form.municipality ? "Select..." : "Pick municipality first"} /></SelectTrigger>
+                    <SelectContent>
+                      {(BARANGAYS_BY_MUNICIPALITY[form.municipality] || []).map(b => (
+                        <SelectItem key={b} value={b}>{b}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div>
@@ -163,11 +213,16 @@ export default function FieldReports() {
                 <div className="flex items-center gap-2 mt-1">
                   <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed cursor-pointer hover:bg-muted text-xs">
                     <Camera className="w-4 h-4" />
-                    {uploading ? 'Uploading...' : 'Add Photo'}
+                    {uploading ? 'Processing...' : 'Add Photo'}
                     <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
                   </label>
                   {form.photo_urls.length > 0 && (
-                    <Badge variant="secondary" className="text-[10px]">{form.photo_urls.length} photo(s)</Badge>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="secondary" className="text-[10px]">{form.photo_urls.length}/2 photo(s)</Badge>
+                      {form.photo_urls.map((url, i) => (
+                        <img key={i} src={url} alt={`attachment ${i + 1}`} className="w-12 h-12 object-cover rounded border" />
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>
@@ -200,8 +255,17 @@ export default function FieldReports() {
                       <span className="capitalize">{inc.type?.replace(/_/g, ' ')}</span>
                       {inc.municipality && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{inc.municipality}</span>}
                       {inc.barangay && <span>{inc.barangay}</span>}
-                      <span>{moment(inc.created_date).fromNow()}</span>
+                      <span>{fsDate(inc.created_at) ? moment(fsDate(inc.created_at)).fromNow() : 'recently'}</span>
                     </div>
+                    {Array.isArray(inc.photo_urls) && inc.photo_urls.length > 0 && (
+                      <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                        {inc.photo_urls.slice(0, 4).map((url, i) => (
+                          <a key={i} href={url.startsWith('data:') ? undefined : url} target={url.startsWith('data:') ? undefined : '_blank'} rel="noreferrer">
+                            <img src={url} alt={`photo ${i + 1}`} className="w-14 h-14 object-cover rounded border" />
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   {(inc.affected_families || inc.affected_persons) && (
                     <div className="text-right shrink-0 space-y-0.5">

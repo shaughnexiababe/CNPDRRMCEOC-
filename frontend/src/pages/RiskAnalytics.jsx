@@ -6,12 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Activity, BarChart3, Loader2, ShieldAlert, CheckCircle2, Users, Map as MapIcon, Package, Shield, TrendingUp } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, PieChart, Pie, Cell } from 'recharts';
-import { MUNICIPALITIES, SEVERITY_LEVELS, MUNICIPALITY_DATA, MUNICIPALITY_COORDINATES, MUNICIPALITY_BBOXES, HAZARD_TYPES } from '@/lib/constants';
-import { cn } from '@/lib/utils';
-import { fetchGeoJSON, getSpatialExposure, estimateReliefRequirements, generateHazardDensityPoints, GEORISK_LAYERS_CONFIG } from '@/lib/spatial';
-import { predictHazardImpact, prescribeEarlyActions, ANALYTICS_DATA_SOURCES } from '@/lib/analytics-engine';
-import * as turf from '@turf/turf';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, RadarChart, PolarGrid, PolarAngleAxis, Radar, PieChart, Pie, Cell } from 'recharts';
+import { MUNICIPALITIES, MUNICIPALITY_DATA } from '@/lib/constants';
+import { fetchGeoJSON, getSpatialExposure, estimateReliefRequirements, GEORISK_LAYERS_CONFIG } from '@/lib/spatial';
+import { predictHazardImpact, prescribeEarlyActions } from '@/lib/analytics-engine';
 
 export default function RiskAnalytics() {
   const [selectedMunicipality, setSelectedMunicipality] = useState('Whole Province');
@@ -42,12 +40,12 @@ export default function RiskAnalytics() {
 
   const { data: facilities = [] } = useQuery({
     queryKey: ['facilities'],
-    queryFn: () => cnpdrrmceoc.entities.Facility.list('-created_date', 1000),
+    queryFn: () => cnpdrrmceoc.entities.Facility.list('-created_at', 1000),
   });
 
   const { data: layers = [] } = useQuery({
     queryKey: ['layers'],
-    queryFn: () => cnpdrrmceoc.entities.HazardLayer.list('-created_date', 100),
+    queryFn: () => cnpdrrmceoc.entities.HazardLayer.list('-created_at', 100),
   });
 
   const runAnalysis = async () => {

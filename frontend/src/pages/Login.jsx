@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, ShieldCheck, HardHat, Info, AlertCircle } from 'lucide-react';
+import { Info, AlertCircle } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -20,26 +20,11 @@ export default function Login() {
     setLoading(true);
     setError('');
     try {
-      await login(email, password || 'password');
+      await login(email, password);
       navigate('/');
     } catch (err) {
       console.error(err);
       setError('Login failed. Please check your credentials.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const quickLogin = async (roleEmail) => {
-    setEmail(roleEmail);
-    setLoading(true);
-    setError('');
-    try {
-      await login(roleEmail, 'password');
-      navigate('/');
-    } catch (err) {
-      console.error(err);
-      setError('Quick login failed.');
     } finally {
       setLoading(false);
     }
@@ -93,26 +78,6 @@ export default function Login() {
             <Link to="/register" className="text-sm text-primary hover:underline">
               Don't have an account? Register as Citizen
             </Link>
-          </div>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-            <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">Demo Role Access</span></div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-2">
-            <Button variant="outline" size="sm" className="justify-start gap-3 h-12" onClick={() => quickLogin('admin@camnorte.gov.ph')}>
-              <ShieldCheck className="w-5 h-5 text-red-600" />
-              <div className="text-left"><p className="font-semibold text-xs leading-none">System Administrator</p><p className="text-[10px] text-muted-foreground mt-1">Full control over GIS, Users, and Policy</p></div>
-            </Button>
-            <Button variant="outline" size="sm" className="justify-start gap-3 h-12" onClick={() => quickLogin('eoc@camnorte.gov.ph')}>
-              <HardHat className="w-5 h-5 text-orange-500" />
-              <div className="text-left"><p className="font-semibold text-xs leading-none">EOC Personnel</p><p className="text-[10px] text-muted-foreground mt-1">Incident management and risk tracking</p></div>
-            </Button>
-            <Button variant="outline" size="sm" className="justify-start gap-3 h-12" onClick={() => quickLogin('citizen@gmail.com')}>
-              <User className="w-5 h-5 text-blue-500" />
-              <div className="text-left"><p className="font-semibold text-xs leading-none">Public / Citizen</p><p className="text-[10px] text-muted-foreground mt-1">Public alerts, basic maps, and field reporting</p></div>
-            </Button>
           </div>
 
           <div className="flex items-center gap-2 p-3 bg-primary/5 rounded-lg border border-primary/10 text-[10px] text-muted-foreground">

@@ -53,16 +53,23 @@ class LocationService : Service() {
                 val unitId = intent.getStringExtra(EXTRA_UNIT_ID)
                 val assignmentTitle = intent.getStringExtra(EXTRA_ASSIGNMENT_TITLE) ?: "Active Assignment"
                 if (unitId != null) {
-                    startForeground(NOTIFICATION_ID, createNotification(assignmentTitle))
+                    try {
+                        startForeground(NOTIFICATION_ID, createNotification(assignmentTitle))
+                    } catch (se: SecurityException) {
+                        // FOREGROUND_SERVICE_LOCATION permission absent (or FGS
+                        // start restriction hit). Degrade gracefully instead of crashing.
+                        stopSelf()
+                        return START_NOT_STICKY
+                    }
                     requestLocationUpdates(unitId)
+                } else {
+                    // Defensive: never run as a zombie service with no unit to track.
+                    stopSelf()
+                    return START_NOT_STICKY
                 }
             }
             ACTION_STOP -> {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    stopForeground(STOP_FOREGROUND_REMOVE)
-                } else {
-                    stopForeground(true)
-                }
+                stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
         }
@@ -86,8 +93,10 @@ class LocationService : Service() {
 
         try {
             fusedLocationClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper())
-        } catch (unlikely: SecurityException) {
-            // Should be handled by UI before starting service
+        } catch (se: SecurityException) {
+            // Location permission revoked while tracking — don't idle forever.
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
         }
     }
 

@@ -1,13 +1,10 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { deriveSeverityDistribution } from '@/lib/analytics-engine';
 
-const severityData = [
-  { name: 'Low', value: 42300, color: '#22C55E' },
-  { name: 'Moderate', value: 31200, color: '#F59E0B' },
-  { name: 'High', value: 18900, color: '#F97316' },
-  { name: 'Very High', value: 8400, color: '#EF4444' },
-];
+// Derived from the shared PSA/hazard baseline (was hardcoded demo data)
+const severityData = deriveSeverityDistribution();
 
 export default function RiskSeverityPie() {
   return (

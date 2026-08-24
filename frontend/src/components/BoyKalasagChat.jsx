@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bot, Send, X, Smile, Shield } from 'lucide-react';
+import { Send, X, Smile, Shield, Siren } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cnpdrrmceoc } from '@/lib/cnpdrrmceoc';
+import { useAuth } from '@/lib/AuthContext';
+import { apiPost, notifyBestEffort } from '@/lib/api';
+import { GeoPoint } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 
 const SYSTEM_INSTRUCTION = `
@@ -25,13 +28,17 @@ const SYSTEM_INSTRUCTION = `
 `;
 
 export default function BoyKalasagChat() {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
     { text: "Dios Marhay na aldaw! I am Boy Kalasag, your PDRRMO AI defender. How can I help you today?", isUser: false }
   ]);
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingSOS, setPendingSOS] = useState(false);
+  const [sosSending, setSosSending] = useState(false);
   const scrollRef = useRef(null);
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -49,27 +56,39 @@ export default function BoyKalasagChat() {
 
     try {
       // Get context from SDK
-      const activeIncidents = await cnpdrrmceoc.entities.IncidentReport.list('-created_date', 5).catch(() => []);
+      const activeIncidents = await cnpdrrmceoc.entities.Incident.list('-created_at', 5).catch(() => []);
       const context = activeIncidents.length > 0
         ? `There are ${activeIncidents.length} recent incidents in the province.`
         : "No recent incidents reported.";
 
-      const prompt = `
-        ${SYSTEM_INSTRUCTION}
-        Current Context: ${context}
-        User says: ${userText}
-      `;
+      // Free-route: the server-side gateway holds the Gemini key. Fall back
+      // to a direct call only when a dev key is configured locally
+      // (VITE_GEMINI_API_KEY) so local `vite dev` keeps working without
+      // `vercel dev`.
+      let botText;
+      try {
+        const gateway = await apiPost('/api/ask-bantay', { message: userText, context });
+        botText = gateway.text;
+      } catch (gatewayErr) {
+        console.warn('AI gateway unavailable, falling back to local key:', gatewayErr);
+        if (!apiKey) throw gatewayErr;
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: `${SYSTEM_INSTRUCTION}\nCurrent Context: ${context}\nUser says: ${userText}` }] }]
+          })
+        });
+        const data = await response.json();
+        botText = data.candidates?.[0]?.content?.parts?.[0]?.text
+          || "Pasensya na, may problema sa pagsagot ko ngayon.";
+      }
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
-        })
-      });
-
-      const data = await response.json();
-      const botText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Pasensya na, may problema sa pagsagot ko ngayon.";
+      // The SOS keyword surfaces a confirmation instead of auto-firing
+      // an incident (web safety-bar pattern; Android prompt F-02 mirrors this).
+      if (botText.includes("[TRIGGER_SOS]")) {
+        setPendingSOS(true);
+      }
 
       setMessages(prev => [...prev, { text: botText, isUser: false }]);
     } catch (error) {
@@ -77,6 +96,45 @@ export default function BoyKalasagChat() {
       setMessages(prev => [...prev, { text: "Maugma! May sadit na problema sa signal ko.", isUser: false }]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const confirmSOS = async () => {
+    setSosSending(true);
+    try {
+      let latitude, longitude;
+      try {
+        const pos = await new Promise((res, rej) =>
+          navigator.geolocation
+            ? navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000 })
+            : rej(new Error('no-geolocation'))
+        );
+        latitude = pos.coords.latitude;
+        longitude = pos.coords.longitude;
+      } catch { /* location optional */ }
+
+      const created = await cnpdrrmceoc.entities.Incident.create({
+        title: "SOS EMERGENCY SIGNAL",
+        description: "User requested emergency assistance via Boy Kalasag chatbot.",
+        type: "sos",
+        priority: "critical",
+        status: "reported",
+        municipality: user?.municipality || "Unknown",
+        barangay: user?.barangay || "",
+        latitude,
+        longitude,
+        location: latitude != null && longitude != null ? new GeoPoint(latitude, longitude) : undefined,
+        reported_by_id: user?.id || undefined,
+      });
+      // Push to EOC staff devices (free-route API; replaces the Firestore trigger)
+      if (created?.id) notifyBestEffort('/api/notify-critical-incident', { incidentId: created.id });
+      setMessages(prev => [...prev, { text: "SOS SENT. The EOC has been notified of your emergency. Stay where you are if it is safe. Hotline: (054) 440-1234 / 911.", isUser: false }]);
+    } catch (e) {
+      console.error('SOS failed:', e);
+      setMessages(prev => [...prev, { text: "Failed to send SOS. Please call 911 or (054) 440-1234 immediately.", isUser: false }]);
+    } finally {
+      setSosSending(false);
+      setPendingSOS(false);
     }
   };
 
@@ -122,6 +180,27 @@ export default function BoyKalasagChat() {
               <div ref={scrollRef} />
             </div>
           </ScrollArea>
+
+          {/* SOS confirmation bar */}
+          {pendingSOS && (
+            <div className="p-3 bg-red-50 border-t-2 border-red-600 flex items-center gap-2">
+              <Siren className="w-4 h-4 text-red-600 shrink-0" />
+              <p className="text-xs text-red-700 flex-1 font-medium">
+                Boy Kalasag detected an emergency. Send an SOS report to the EOC with your location?
+              </p>
+              <Button
+                size="sm"
+                className="bg-red-600 hover:bg-red-700 text-white h-8 px-3 text-xs"
+                onClick={confirmSOS}
+                disabled={sosSending}
+              >
+                {sosSending ? 'Sending...' : 'SEND SOS'}
+              </Button>
+              <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setPendingSOS(false)}>
+                Cancel
+              </Button>
+            </div>
+          )}
 
           {/* Input Area */}
           <div className="p-3 border-t bg-white flex gap-2">
