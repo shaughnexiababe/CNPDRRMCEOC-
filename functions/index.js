@@ -189,7 +189,7 @@ exports.expireHazardAlerts = functions.region(REGION).pubsub
   });
 
 /**
- * Optional secure gateway for the "Boy Kalasag / Bantay" AI assistant.
+ * Optional secure gateway for the "Super Batang Kalasag" AI assistant.
  * Keeps the Gemini API key server-side instead of in the web bundle.
  * Configure with:  firebase functions:secrets:set GEMINI_API_KEY
  * Web/Android clients can switch to this callable instead of calling the
@@ -214,7 +214,7 @@ exports.askBantayGateway = functions
     }
 
     const systemInstruction = [
-      'You are "Bantay" (web twin: "Boy Kalasag"), the AI wingman for the CN-PDRRMO EOC app.',
+      'You are "Super Batang Kalasag", the AI wingman for the CN-PDRRMO EOC app.',
       'Help citizens of Camarines Norte with weather updates, disaster protocols, and emergency contacts.',
       'Be brief, use Bicolano-friendly Tagalog, and prioritize safety.',
       'If the user is in immediate danger, include the keyword [TRIGGER_SOS] in your text.',

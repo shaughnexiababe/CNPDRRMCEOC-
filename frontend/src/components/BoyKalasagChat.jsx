@@ -11,7 +11,7 @@ import { GeoPoint } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 
 const SYSTEM_INSTRUCTION = `
-    You are "Boy Kalasag", the AI defender and superhero wingman for the CNPDRRMEOC app.
+    You are "Super Batang Kalasag", the AI defender and superhero wingman for the CNPDRRMEOC app.
     Your mission is to protect the citizens of Camarines Norte by providing weather updates, disaster protocols, and emergency contacts.
 
     PREDICTIVE CAPABILITIES:
@@ -31,7 +31,7 @@ export default function BoyKalasagChat() {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { text: "Dios Marhay na aldaw! I am Boy Kalasag, your PDRRMO AI defender. How can I help you today?", isUser: false }
+    { text: "Dios Marhay na aldaw! I am Super Batang Kalasag, your PDRRMO AI defender. How can I help you today?", isUser: false }
   ]);
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -115,7 +115,7 @@ export default function BoyKalasagChat() {
 
       const created = await cnpdrrmceoc.entities.Incident.create({
         title: "SOS EMERGENCY SIGNAL",
-        description: "User requested emergency assistance via Boy Kalasag chatbot.",
+        description: "User requested emergency assistance via Super Batang Kalasag chatbot.",
         type: "sos",
         priority: "critical",
         status: "reported",
@@ -145,10 +145,10 @@ export default function BoyKalasagChat() {
           {/* Header */}
           <div className="bg-red-600 p-3 text-white flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="bg-white rounded-full p-1">
-                <Smile className="w-4 h-4 text-red-600" />
+              <div className="bg-white rounded-full p-1 w-8 h-8 flex items-center justify-center overflow-hidden">
+                <img src="/logo.png" alt="SBK" className="w-full h-full object-cover" />
               </div>
-              <span className="font-bold tracking-tight">Boy Kalasag AI</span>
+              <span className="font-bold tracking-tight">Super Batang Kalasag</span>
             </div>
             <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-red-700" onClick={() => setIsOpen(false)}>
               <X className="w-5 h-5" />
@@ -173,7 +173,7 @@ export default function BoyKalasagChat() {
               {isLoading && (
                 <div className="flex justify-start">
                   <div className="bg-white p-3 rounded-2xl text-sm border border-slate-200 rounded-tl-none animate-pulse">
-                    Nagiisip si Boy Kalasag...
+                    Nagiisip si Super Batang Kalasag...
                   </div>
                 </div>
               )}
@@ -186,7 +186,7 @@ export default function BoyKalasagChat() {
             <div className="p-3 bg-red-50 border-t-2 border-red-600 flex items-center gap-2">
               <Siren className="w-4 h-4 text-red-600 shrink-0" />
               <p className="text-xs text-red-700 flex-1 font-medium">
-                Boy Kalasag detected an emergency. Send an SOS report to the EOC with your location?
+                Super Batang Kalasag detected an emergency. Send an SOS report to the EOC with your location?
               </p>
               <Button
                 size="sm"
@@ -228,7 +228,7 @@ export default function BoyKalasagChat() {
           onClick={() => setIsOpen(true)}
         >
           <div className="relative w-full h-full flex items-center justify-center">
-            <Shield className="w-8 h-8 text-white group-hover:scale-110 transition-transform" />
+            <img src="/logo.png" alt="SBK" className="w-10 h-10 group-hover:scale-110 transition-transform" />
             <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 border-2 border-white rounded-full animate-bounce" />
           </div>
         </Button>

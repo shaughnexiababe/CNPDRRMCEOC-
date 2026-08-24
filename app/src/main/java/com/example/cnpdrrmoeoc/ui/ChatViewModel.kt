@@ -18,7 +18,7 @@ class ChatViewModel @Inject constructor() : ViewModel() {
     val uiState: StateFlow<ChatUiState> = _uiState
 
     private val _messages = MutableStateFlow<List<ChatMessage>>(
-        listOf(ChatMessage("Dios Marhay na aldaw! I am Bantay, your CNPDRRMEOC AI wingman. How can I help you protect Camarines Norte today?", false))
+        listOf(ChatMessage("Dios Marhay na aldaw! I am Super Batang Kalasag, your CNPDRRMEOC AI wingman. How can I help you protect Camarines Norte today?", false))
     )
     val messages: StateFlow<List<ChatMessage>> = _messages
 
@@ -51,7 +51,7 @@ class ChatViewModel @Inject constructor() : ViewModel() {
         } else null
 
     private val systemInstruction = """
-        You are "Bantay", the AI wingman for the CNPDRRMEOC app. 
+        You are "Super Batang Kalasag", the AI wingman for the CNPDRRMEOC app. 
         Help citizens of Camarines Norte with weather updates, disaster protocols, and emergency contacts. 
         Be brief, use Bicolano-friendly Tagalog, and prioritize safety.
         

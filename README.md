@@ -46,7 +46,7 @@ Publishable reference copy of the Firebase-backed client library used by the web
 - **Offline Hazard Overlays**: provincial flood/landslide GeoJSON rendered client-side without a tile server
 - **Real-Time Firestore listeners** for the operations map on both platforms
 - **Role-based access**: citizen / eoc_personnel / admin — enforced in the UI **and** by Firestore security rules
-- **AI integration**: Gemini-based assistants (BantayTwin / Boy Kalasag) with keyword intents (`[TRIGGER_SOS]`, map/alert navigation)
+- **AI integration**: Gemini-based assistant (Super Batang Kalasag) with keyword intents (`[TRIGGER_SOS]`, map/alert navigation)
 - **Agency integrations**: PHIVOLCS & PAGASA RSS feeds; hazard datasets aligned with HazardHunter PH / GeoRisk (see `DATA_GUIDE.md`)
 
 ---

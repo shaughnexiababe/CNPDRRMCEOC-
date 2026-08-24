@@ -1,6 +1,7 @@
 package com.example.cnpdrrmoeoc.ui.components
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -17,7 +18,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -108,16 +111,17 @@ fun BantayFAB(onClick: () -> Unit) {
             val progress by animateLottieCompositionAsState(composition, iterations = LottieConstants.IterateForever)
 
             if (composition != null) {
-                LottieAnimation(
-                    composition = composition,
-                    progress = { progress },
-                    modifier = Modifier.size(56.dp)
+                // Once sbk_icon.png is added to res/drawable, replace R.drawable.logo with R.drawable.sbk_icon
+                Image(
+                    painter = painterResource(id = R.drawable.logo),
+                    contentDescription = "Super Batang Kalasag",
+                    modifier = Modifier.size(56.dp).clip(CircleShape)
                 )
             } else {
-                Icon(
-                    Icons.Default.Security,
-                    contentDescription = "Bantay AI",
-                    modifier = Modifier.size(40.dp)
+                Image(
+                    painter = painterResource(id = R.drawable.logo),
+                    contentDescription = "Super Batang Kalasag",
+                    modifier = Modifier.size(56.dp).clip(CircleShape)
                 )
             }
         }
@@ -153,10 +157,14 @@ fun ChatBottomSheet(
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Face, contentDescription = null, tint = Color.White)
+                Image(
+                    painter = painterResource(id = R.drawable.logo),
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp).clip(CircleShape).background(Color.White)
+                )
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Bantay AI", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Super Batang Kalasag", color = Color.White, fontWeight = FontWeight.Bold)
                     Text("PDRRMO Response Wingman", color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.labelSmall)
                 }
                 IconButton(onClick = onClose) {
@@ -180,7 +188,7 @@ fun ChatBottomSheet(
                 if (uiState is ChatUiState.Loading) {
                     item {
                         Text(
-                            "Nagiisip si Bantay...",
+                            "Nagiisip si Super Batang Kalasag...",
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.Gray,
                             modifier = Modifier.padding(start = 8.dp)
@@ -204,7 +212,7 @@ fun ChatBottomSheet(
                     OutlinedTextField(
                         value = inputText,
                         onValueChange = { inputText = it },
-                        placeholder = { Text("Ask Bantay about safety...") },
+                        placeholder = { Text("Ask Super Batang Kalasag about safety...") },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(24.dp),
                         maxLines = 3,
