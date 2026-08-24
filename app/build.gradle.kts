@@ -7,6 +7,15 @@ plugins {
     alias(libs.plugins.googleServices)
 }
 
+// Read at build time from local.properties / gradle.properties or env:
+//   GEMINI_API_KEY=your-key-here
+// Never commit a real key to git.
+val geminiApiKey: String = (
+    (project.findProperty("GEMINI_API_KEY") as String?)
+        ?: System.getenv("GEMINI_API_KEY")
+        ?: ""
+    ).replace("\"", "")
+
 android {
     namespace = "com.example.cnpdrrmoeoc"
     compileSdk = 35
@@ -17,6 +26,8 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+
+        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -39,6 +50,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -47,6 +59,7 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
     implementation(libs.androidx.security.crypto)
+    implementation(libs.androidx.activity.compose)
     
     // GIS
     implementation(libs.maplibre.android)

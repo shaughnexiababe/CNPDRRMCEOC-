@@ -1,0 +1,132 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- helpers ----------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function userProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+    function role() {
+      return (isSignedIn() && userProfile().exists && userProfile().data.role is string)
+        ? userProfile().data.role
+        : 'citizen';
+    }
+    function isStaff() {
+      return isSignedIn() && (role() == 'eoc_personnel' || role() == 'admin');
+    }
+    function isAdmin() {
+      return isSignedIn() && role() == 'admin';
+    }
+
+    // ---------- users ----------
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isStaff());
+      // Public self-registration is citizen-only. Staff roles are assigned
+      // by admins (console) or the inviteStaff Cloud Function.
+      allow create: if isSignedIn() && request.auth.uid == userId
+        && request.resource.data.role == 'citizen';
+      // Admins may change roles; a user may update their own profile but
+      // can never change their own role (privilege escalation guard).
+      allow update: if isAdmin()
+        || (isSignedIn() && request.auth.uid == userId
+            && request.resource.data.role == resource.data.role);
+      allow delete: if isAdmin();
+    }
+
+    // ---------- incidents ----------
+    match /incidents/{incidentId} {
+      // Any authenticated user may read the incident map/province feed.
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.reported_by_id == request.auth.uid
+        && request.resource.data.status == 'reported';
+      // Staff workflow (verify/dispatch/responding/resolved); a reporter may
+      // still edit their own report while it is unverified.
+      allow update: if isStaff()
+        || (isSignedIn()
+            && resource.data.reported_by_id == request.auth.uid
+            && resource.data.status == 'reported');
+      allow delete: if isAdmin();
+    }
+
+    // ---------- hazard alerts ----------
+    match /hazard_alerts/{alertId} {
+      allow read: if isSignedIn();
+      allow write: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    // ---------- response units ----------
+    match /units/{unitId} {
+      allow read: if isStaff();
+      // Dispatchers (staff) manage units; a crew lead may push GPS fixes.
+      allow write: if isStaff();
+      allow update: if isSignedIn() && resource.data.crew_lead_user_id == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['current_location', 'last_location_update', 'updated_at']);
+
+      match /location_history/{recordId} {
+        allow read: if isStaff();
+        allow create: if isStaff()
+          || (isSignedIn()
+              && get(/databases/$(database)/documents/units/$(unitId)).data.crew_lead_user_id == request.auth.uid);
+        allow update, delete: if false;
+      }
+    }
+
+    // ---------- assignments ----------
+    match /assignments/{assignmentId} {
+      allow read: if isStaff();
+      allow create, update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    // ---------- facilities ----------
+    match /facilities/{facilityId} {
+      allow read: if isSignedIn();
+      allow create, update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    // ---------- hazard layers (GIS datasets) ----------
+    match /hazard_layers/{layerId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ---------- barangay assessments ----------
+    match /barangay_assessments/{docId} {
+      allow read: if isStaff();
+      allow create, update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    // ---------- shift notes ----------
+    match /shift_notes/{noteId} {
+      allow read, create: if isStaff();
+      allow update, delete: if isAdmin();
+    }
+
+    // ---------- "I'm safe" check-ins ----------
+    match /checkins/{checkinId} {
+      allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
+      allow read: if isSignedIn() && (resource.data.user_id == request.auth.uid || isStaff());
+      allow update, delete: if isAdmin();
+    }
+
+    // ---------- audit logs (Cloud Functions / Admin SDK only) ----------
+    match /audit_logs/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Default: deny everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -7,8 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Layers, Filter, MapPin } from 'lucide-react';
-import { MUNICIPALITIES, FACILITY_TYPES, MUNICIPALITY_COORDINATES, BARANGAYS_BY_MUNICIPALITY } from '@/lib/constants';
+import { Filter, MapPin } from 'lucide-react';
+import { MUNICIPALITIES, MUNICIPALITY_COORDINATES, BARANGAYS_BY_MUNICIPALITY } from '@/lib/constants';
 
 export default function GISMapPage() {
   const [selectedMunicipality, setSelectedMunicipality] = useState('all');
@@ -37,22 +37,22 @@ export default function GISMapPage() {
 
   const { data: facilities = [] } = useQuery({
     queryKey: ['facilities'],
-    queryFn: () => cnpdrrmceoc.entities.Facility.list('-created_date', 500),
+    queryFn: () => cnpdrrmceoc.entities.Facility.list('-created_at', 500),
   });
 
   const { data: alerts = [] } = useQuery({
     queryKey: ['alerts'],
-    queryFn: () => cnpdrrmceoc.entities.HazardAlert.list('-created_date', 100),
+    queryFn: () => cnpdrrmceoc.entities.HazardAlert.list('-created_at', 100),
   });
 
   const { data: incidents = [] } = useQuery({
     queryKey: ['incidents'],
-    queryFn: () => cnpdrrmceoc.entities.IncidentReport.list('-created_date', 100),
+    queryFn: () => cnpdrrmceoc.entities.Incident.list('-created_at', 100),
   });
 
   const { data: layers = [] } = useQuery({
     queryKey: ['layers'],
-    queryFn: () => cnpdrrmceoc.entities.HazardLayer.list('-created_date', 100),
+    queryFn: () => cnpdrrmceoc.entities.HazardLayer.list('-created_at', 100),
   });
 
   const filteredFacilities = facilities.filter(f => {

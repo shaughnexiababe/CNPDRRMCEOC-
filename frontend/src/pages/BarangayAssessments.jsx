@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, ClipboardList, MapPin, User, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
+import { fsDate } from '@/lib/utils';
 
 const exposureLevels = ['none', 'low', 'moderate', 'high', 'very_high'];
 const exposureColors = {
@@ -51,7 +52,7 @@ export default function BarangayAssessments() {
 
   const { data: assessments = [] } = useQuery({
     queryKey: ['barangay_assessments'],
-    queryFn: () => cnpdrrmceoc.entities.BarangayAssessment.list('-created_date', 100),
+    queryFn: () => cnpdrrmceoc.entities.BarangayAssessment.list('-created_at', 100),
   });
 
   const createMutation = useMutation({
@@ -330,7 +331,7 @@ export default function BarangayAssessments() {
                       <User className="w-3 h-3" />
                       {a.submitter_name}
                     </div>
-                    <span>{format(new Date(a.created_date), 'MMM d, yyyy')}</span>
+                    <span>{format(fsDate(a.created_at) || new Date(), 'MMM d, yyyy')}</span>
                   </div>
 
                   {/* Admin: verify button */}

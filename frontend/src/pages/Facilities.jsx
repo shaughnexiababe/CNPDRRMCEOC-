@@ -8,11 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, MapPin, Building2, Search, Upload, FileJson, Loader2, Trash2, RefreshCw, Zap } from 'lucide-react';
+import { Plus, MapPin, Search, FileJson, Loader2, Trash2 } from 'lucide-react';
 import { MUNICIPALITIES, FACILITY_TYPES, SEVERITY_LEVELS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { getSpatialExposure, fetchGeoJSON } from '@/lib/spatial';
-import axios from 'axios';
 
 const statusStyles = {
   operational: 'bg-green-500/10 text-green-600',
@@ -37,12 +36,12 @@ export default function Facilities() {
 
   const { data: facilities = [], isLoading: isLoadingRegistry } = useQuery({
     queryKey: ['facilities-registry'],
-    queryFn: () => cnpdrrmceoc.entities.Facility.list('-created_date', 1000),
+    queryFn: () => cnpdrrmceoc.entities.Facility.list('-created_at', 1000),
   });
 
   const { data: layers = [], isLoading: isLoadingLayers } = useQuery({
     queryKey: ['layers'],
-    queryFn: () => cnpdrrmceoc.entities.HazardLayer.list('-created_date', 100),
+    queryFn: () => cnpdrrmceoc.entities.HazardLayer.list('-created_at', 100),
   });
 
   const handleAutoTagging = async (lat, lng) => {
@@ -118,10 +117,11 @@ export default function Facilities() {
   });
 
   const deleteManyMutation = useMutation({
-    mutationFn: () => {
-      // Logic to clear all facilities - in mock mode we just clear the cache
-      localStorage.removeItem('pdrrmo_cache_Facility');
-      return Promise.resolve();
+    mutationFn: async () => {
+      // Actually clear the Firestore registry (used to remove localStorage
+      // mock-cache keys left over from the old mock SDK).
+      const docs = await cnpdrrmceoc.entities.Facility.list(null, 1000);
+      await Promise.all(docs.map(d => cnpdrrmceoc.entities.Facility.delete(d.id)));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['facilities-registry'] });

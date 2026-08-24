@@ -1,0 +1,33 @@
+rules_version = '2';
+
+// NOTE (2026-08): Cloud Storage for Firebase now requires the BLAZE plan.
+// The project currently runs on the free route: incident photos are
+// compressed to inline base64 inside Firestore documents, so Storage is
+// not provisioned and these rules are not deployed (they were removed from
+// firebase.json). Keep this file in case the project later upgrades to
+// Blaze and re-enables Storage.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() { return request.auth != null; }
+
+    // Incident photo attachments uploaded by citizens/staff
+    match /incident_photos/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn()
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // GIS hazard layer datasets uploaded by staff/admin
+    match /hazard_layers/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.resource.size < 50 * 1024 * 1024;
+    }
+
+    // Default: deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

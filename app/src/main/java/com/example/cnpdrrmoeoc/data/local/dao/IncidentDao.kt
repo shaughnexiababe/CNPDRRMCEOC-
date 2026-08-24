@@ -10,10 +10,16 @@ interface IncidentDao {
     fun getAllIncidents(): Flow<List<IncidentReport>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertIncident(incident: IncidentReport)
+    suspend fun insertIncident(incident: IncidentReport): Long
 
     @Delete
     suspend fun deleteIncident(incident: IncidentReport)
+
+    @Query("DELETE FROM incident_reports WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
+    @Query("SELECT * FROM incident_reports ORDER BY createdDate ASC")
+    suspend fun getPendingOnce(): List<IncidentReport>
 
     @Query("DELETE FROM incident_reports")
     suspend fun clearAll()

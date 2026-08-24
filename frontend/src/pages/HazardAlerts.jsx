@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cnpdrrmceoc } from '@/lib/cnpdrrmceoc';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { notifyBestEffort } from '@/lib/api';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -9,9 +10,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, AlertTriangle, Clock, MapPin, ExternalLink } from 'lucide-react';
+import { Plus, Clock, MapPin, ExternalLink } from 'lucide-react';
 import { MUNICIPALITIES, HAZARD_TYPES, SEVERITY_LEVELS } from '@/lib/constants';
-import { cn } from '@/lib/utils';
+import { cn, fsDate } from '@/lib/utils';
+import { Timestamp } from 'firebase/firestore';
 import moment from 'moment';
 
 const severityStyles = {
@@ -36,12 +38,12 @@ export default function HazardAlerts() {
     title: '', type: 'flood', severity: 'moderate', status: 'active',
     description: '', affected_municipality: '', source: '', source_url: '',
     estimated_affected_households: '', latitude: '', longitude: '',
-    issued_at: new Date().toISOString().slice(0, 16),
+    issued_at: new Date().toISOString().slice(0, 16), expires_at: '',
   });
 
   const { data: alerts = [], isLoading } = useQuery({
     queryKey: ['alerts'],
-    queryFn: () => cnpdrrmceoc.entities.HazardAlert.list('-created_date', 100),
+    queryFn: () => cnpdrrmceoc.entities.HazardAlert.list('-created_at', 100),
   });
 
   const createMutation = useMutation({
@@ -50,11 +52,21 @@ export default function HazardAlerts() {
       estimated_affected_households: data.estimated_affected_households ? Number(data.estimated_affected_households) : undefined,
       latitude: data.latitude ? Number(data.latitude) : undefined,
       longitude: data.longitude ? Number(data.longitude) : undefined,
+      // Store as Firestore Timestamps (was an ISO string). The Android app
+      // orders/reads `issued_at` as a Timestamp; mixed types break
+      // cross-platform ordering.
+      issued_at: data.issued_at ? Timestamp.fromDate(new Date(data.issued_at)) : Timestamp.now(),
+      expires_at: data.expires_at ? Timestamp.fromDate(new Date(data.expires_at)) : null,
     }),
-    onSuccess: () => {
+    onSuccess: (created) => {
+      // Push the alert to citizen devices via the free-route API route
+      // (replaces the onHazardAlertCreated Cloud Function trigger).
+      if (created?.id) {
+        notifyBestEffort('/api/notify-hazard-alert', { alertId: created.id });
+      }
       queryClient.invalidateQueries({ queryKey: ['alerts'] });
       setOpen(false);
-      setForm({ title: '', type: 'flood', severity: 'moderate', status: 'active', description: '', affected_municipality: '', source: '', estimated_affected_households: '', latitude: '', longitude: '', issued_at: new Date().toISOString().slice(0, 16) });
+      setForm({ title: '', type: 'flood', severity: 'moderate', status: 'active', description: '', affected_municipality: '', source: '', estimated_affected_households: '', latitude: '', longitude: '', issued_at: new Date().toISOString().slice(0, 16), expires_at: '' });
     },
   });
 
@@ -153,6 +165,16 @@ export default function HazardAlerts() {
                   <Label className="text-xs">Est. Affected Households</Label>
                   <Input type="number" value={form.estimated_affected_households} onChange={e => setForm({ ...form, estimated_affected_households: e.target.value })} />
                 </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Issued At</Label>
+                    <Input type="datetime-local" value={form.issued_at} onChange={e => setForm({ ...form, issued_at: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Expires At (auto-expires)</Label>
+                    <Input type="datetime-local" value={form.expires_at} onChange={e => setForm({ ...form, expires_at: e.target.value })} />
+                  </div>
+                </div>
                 <Button type="submit" className="w-full" disabled={createMutation.isPending}>
                   {createMutation.isPending ? 'Creating...' : 'Create Alert'}
                 </Button>
@@ -193,7 +215,7 @@ export default function HazardAlerts() {
                           )}
                         </div>
                       )}
-                      {alert.issued_at && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{moment(alert.issued_at).format('MMM D, HH:mm')}</span>}
+                      {fsDate(alert.issued_at) && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{moment(fsDate(alert.issued_at)).format('MMM D, HH:mm')}</span>}
                     </div>
                   </div>
                   {alert.estimated_affected_households && (

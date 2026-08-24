@@ -38,7 +38,7 @@ class GisViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val evacuationCenters: StateFlow<List<CriticalFacility>> = repository.getEvacuationCenters()
+    val evacuationCenters: StateFlow<List<Facility>> = repository.getEvacuationCenters()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val shiftNotes: StateFlow<List<ShiftNote>> = repository.getShiftNotes()
@@ -141,7 +141,12 @@ class GisViewModel @Inject constructor(
         val assignment = myAssignment.value ?: return
         val unit = myUnit.value ?: return
         viewModelScope.launch {
-            repository.advanceAssignmentStatus(assignment.id, unit.id, assignment.status)
+            repository.advanceAssignmentStatus(
+                assignmentId = assignment.id,
+                unitId = unit.id,
+                currentStatus = assignment.status,
+                incidentId = assignment.incident_id
+            )
         }
     }
 
@@ -214,7 +219,8 @@ class GisViewModel @Inject constructor(
         municipality: String,
         barangay: String = "",
         latitude: Double? = null,
-        longitude: Double? = null
+        longitude: Double? = null,
+        photoUrls: List<String> = emptyList()
     ) {
         val user = currentUser.value ?: return
         viewModelScope.launch {
@@ -225,9 +231,14 @@ class GisViewModel @Inject constructor(
                 municipality = municipality,
                 barangay = barangay,
                 location = if (latitude != null && longitude != null) GeoPoint(latitude, longitude) else null,
+                latitude = latitude,
+                longitude = longitude,
                 status = "reported",
-                priority = "medium",
+                priority = if (type == "sos") "critical" else "medium",
                 reported_by_id = user.id,
+                // Inline base64 data-URL photos (free-route storage).
+                // Cap 2 to keep the Firestore doc under 1MiB.
+                photo_urls = photoUrls.take(2),
                 created_at = Timestamp.now(),
                 updated_at = Timestamp.now()
             )
@@ -240,6 +251,12 @@ class GisViewModel @Inject constructor(
         val user = currentUser.value ?: return
         viewModelScope.launch {
             repository.verifyIncident(incidentId, user.id)
+        }
+    }
+
+    fun resolveIncident(incidentId: String) {
+        viewModelScope.launch {
+            repository.resolveIncident(incidentId)
         }
     }
 
@@ -297,9 +314,20 @@ class GisViewModel @Inject constructor(
         }
     }
 
+    init {
+        // Replay any incident reports queued while offline.
+        viewModelScope.launch {
+            try {
+                repository.syncPendingReports()
+            } catch (_: Exception) { /* stays queued */ }
+        }
+    }
+
     fun login(email: String, password: String) {
         viewModelScope.launch {
             authRepository.login(email, password)
+            // After login, replay the offline outbox with the correct uid.
+            try { repository.syncPendingReports() } catch (_: Exception) { }
         }
     }
 
@@ -314,7 +342,7 @@ class GisViewModel @Inject constructor(
         submitReport(
             title = "SOS EMERGENCY SIGNAL",
             description = "User triggered an SOS via Bantay AI Chatbot.",
-            type = "Emergency",
+            type = "sos", // canonical sos type drives critical priority + staff FCM notify
             municipality = user?.municipality ?: "Unknown",
             latitude = latitude,
             longitude = longitude

@@ -1,99 +1,18 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { cnpdrrmceoc } from '@/lib/cnpdrrmceoc';
-import { appParams } from '@/lib/app-params';
-import { createAxiosClient } from '@shaughnexiababe/sdk';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  console.log('SDK Debug:', cnpdrrmceoc);
-  console.log('Firebase Config Check:', {
-    apiKey: !!import.meta.env.VITE_FIREBASE_API_KEY,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    useRealSdk: import.meta.env.VITE_USE_REAL_SDK
-  });
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(true);
   const [authError, setAuthError] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
-  const [appPublicSettings, setAppPublicSettings] = useState(null); // Contains only { id, public_settings }
 
   useEffect(() => {
-    checkAppState();
+    checkUserAuth();
   }, []);
-
-  const checkAppState = async () => {
-    try {
-      setIsLoadingPublicSettings(true);
-      setAuthError(null);
-
-      // First, check app public settings (with token if available)
-      // This will tell us if auth is required, user not registered, etc.
-      const appClient = createAxiosClient({
-        baseURL: `/api/apps/public`,
-        headers: {
-          'X-App-Id': appParams.appId
-        },
-        token: appParams.token, // Include token if available
-        interceptResponses: true
-      });
-
-      try {
-        const publicSettings = await appClient.get(`/prod/public-settings/by-id/${appParams.appId}`);
-        setAppPublicSettings(publicSettings);
-
-        // If we got the app public settings successfully, check if user is authenticated
-        if (appParams.token) {
-          await checkUserAuth();
-        } else {
-          setIsLoadingAuth(false);
-          setIsAuthenticated(false);
-          setAuthChecked(true);
-        }
-        setIsLoadingPublicSettings(false);
-      } catch (appError) {
-        console.error('App state check failed:', appError);
-
-        // Handle app-level errors
-        if (appError.status === 403 && appError.data?.extra_data?.reason) {
-          const reason = appError.data.extra_data.reason;
-          if (reason === 'auth_required') {
-            setAuthError({
-              type: 'auth_required',
-              message: 'Authentication required'
-            });
-          } else if (reason === 'user_not_registered') {
-            setAuthError({
-              type: 'user_not_registered',
-              message: 'User not registered for this app'
-            });
-          } else {
-            setAuthError({
-              type: reason,
-              message: appError.message
-            });
-          }
-        } else {
-          setAuthError({
-            type: 'unknown',
-            message: appError.message || 'Failed to load app'
-          });
-        }
-        setIsLoadingPublicSettings(false);
-        setIsLoadingAuth(false);
-      }
-    } catch (error) {
-      console.error('Unexpected error:', error);
-      setAuthError({
-        type: 'unknown',
-        message: error.message || 'An unexpected error occurred'
-      });
-      setIsLoadingPublicSettings(false);
-      setIsLoadingAuth(false);
-    }
-  };
 
   const checkUserAuth = async () => {
     try {
@@ -105,19 +24,18 @@ export const AuthProvider = ({ children }) => {
       } else {
         setIsAuthenticated(false);
       }
-      setIsLoadingAuth(false);
-      setAuthChecked(true);
     } catch (error) {
       console.error('User auth check failed:', error);
-      setIsLoadingAuth(false);
       setIsAuthenticated(false);
+    } finally {
+      setIsLoadingAuth(false);
       setAuthChecked(true);
     }
   };
 
   const login = async (email, password) => {
+    setIsLoadingAuth(true);
     try {
-      setIsLoadingAuth(true);
       const result = await cnpdrrmceoc.auth.login(email, password);
       setUser(result.user);
       setIsAuthenticated(true);
@@ -125,6 +43,7 @@ export const AuthProvider = ({ children }) => {
       return result;
     } catch (error) {
       console.error('Login failed:', error);
+      setAuthError({ type: 'auth_failed', message: 'Invalid credentials' });
       throw error;
     } finally {
       setIsLoadingAuth(false);
@@ -132,13 +51,13 @@ export const AuthProvider = ({ children }) => {
   };
 
   const register = async (data) => {
+    setIsLoadingAuth(true);
     try {
-      setIsLoadingAuth(true);
-      const user = await cnpdrrmceoc.auth.register(data);
-      setUser(user);
+      const newUser = await cnpdrrmceoc.auth.register(data);
+      setUser(newUser);
       setIsAuthenticated(true);
       setAuthChecked(true);
-      return user;
+      return newUser;
     } catch (error) {
       console.error('Registration failed:', error);
       throw error;
@@ -162,16 +81,16 @@ export const AuthProvider = ({ children }) => {
       user,
       isAuthenticated,
       isLoadingAuth,
-      isLoadingPublicSettings,
+      // Kept for backwards compatibility with App.jsx; there is no external
+      // "public settings" service anymore (that was a leftover platform API).
+      isLoadingPublicSettings: false,
       authError,
-      appPublicSettings,
       authChecked,
       login,
       register,
       logout,
       navigateToLogin,
-      checkUserAuth,
-      checkAppState
+      checkUserAuth
     }}>
       {children}
     </AuthContext.Provider>

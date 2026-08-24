@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { ClipboardList, MapPin, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
+import { fsDate } from '@/lib/utils';
 
 const exposureColors = {
   none: 'text-gray-500',
@@ -19,7 +20,7 @@ const exposureColors = {
 export default function AssessmentsPanel() {
   const { data: assessments = [] } = useQuery({
     queryKey: ['barangay_assessments'],
-    queryFn: () => cnpdrrmceoc.entities.BarangayAssessment.list('-created_date', 5),
+    queryFn: () => cnpdrrmceoc.entities.BarangayAssessment.list('-created_at', 5),
   });
 
   const highRiskCount = assessments.filter(a =>
@@ -72,7 +73,7 @@ export default function AssessmentsPanel() {
                   <span>SS: <span className={`font-medium ${exposureColors[a.storm_surge_exposure] || ''}`}>{(a.storm_surge_exposure || 'none').replace('_', ' ')}</span></span>
                 </div>
               </div>
-              <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(a.created_date), 'MMM d')}</span>
+              <span className="text-[10px] text-muted-foreground shrink-0">{format(fsDate(a.created_at) || new Date(), 'MMM d')}</span>
             </div>
           ))
         )}

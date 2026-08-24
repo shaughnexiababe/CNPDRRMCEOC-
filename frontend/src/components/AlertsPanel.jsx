@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, Clock } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, fsDate } from '@/lib/utils';
 import moment from 'moment';
 
 const severityStyles = {
@@ -50,7 +50,7 @@ export default function AlertsPanel({ alerts = [], limit = 5 }) {
                   </Badge>
                   <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                     <Clock className="w-2.5 h-2.5" />
-                    {alert.issued_at ? moment(alert.issued_at).fromNow() : 'recently'}
+                    {fsDate(alert.issued_at) ? moment(fsDate(alert.issued_at)).fromNow() : 'recently'}
                   </span>
                 </div>
                 {alert.affected_municipality && (

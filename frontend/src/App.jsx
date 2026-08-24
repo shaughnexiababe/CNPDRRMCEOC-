@@ -45,14 +45,26 @@ const AuthenticatedApp = () => {
         <Route element={<AppLayout />}>
           <Route path="/" element={<StrategicDashboard />} />
           <Route path="/map" element={<GISMapPage />} />
-          <Route path="/operations" element={<OperationsCenter />} />
-          <Route path="/analytics" element={<RiskAnalytics />} />
           <Route path="/alerts" element={<HazardAlerts />} />
           <Route path="/incidents" element={<FieldReports />} />
-          <Route path="/facilities" element={<Facilities />} />
-          <Route path="/layers" element={<DataLayers />} />
-          <Route path="/assessments" element={<BarangayAssessments />} />
-          <Route path="/users" element={<UserManagement />} />
+        </Route>
+
+        {/* EOC staff & admin only */}
+        <Route element={<ProtectedRoute roles={['admin', 'eoc_personnel']} unauthenticatedElement={<Navigate to="/login" />} />}>
+          <Route element={<AppLayout />}>
+            <Route path="/operations" element={<OperationsCenter />} />
+            <Route path="/analytics" element={<RiskAnalytics />} />
+            <Route path="/facilities" element={<Facilities />} />
+            <Route path="/assessments" element={<BarangayAssessments />} />
+          </Route>
+        </Route>
+
+        {/* Admin only */}
+        <Route element={<ProtectedRoute roles={['admin']} unauthenticatedElement={<Navigate to="/login" />} />}>
+          <Route element={<AppLayout />}>
+            <Route path="/layers" element={<DataLayers />} />
+            <Route path="/users" element={<UserManagement />} />
+          </Route>
         </Route>
       </Route>
 

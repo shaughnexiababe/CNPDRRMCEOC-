@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cnpdrrmceoc } from '@/lib/cnpdrrmceoc';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Plus, Layers, Upload, Database, FileText, Download, Loader2, Trash2, ShieldCheck } from 'lucide-react';
-import { MUNICIPALITIES, HAZARD_TYPES } from '@/lib/constants';
+import { MUNICIPALITIES } from '@/lib/constants';
 import { GEORISK_LAYERS_CONFIG } from '@/lib/spatial';
 import axios from 'axios';
 
@@ -37,7 +37,7 @@ export default function DataLayers() {
 
   const { data: layers = [], isLoading } = useQuery({
     queryKey: ['layers'],
-    queryFn: () => cnpdrrmceoc.entities.HazardLayer.list('-created_date', 100),
+    queryFn: () => cnpdrrmceoc.entities.HazardLayer.list('-created_at', 100),
   });
 
   const createMutation = useMutation({
@@ -129,10 +129,24 @@ export default function DataLayers() {
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    // Free-route storage: the dataset is embedded as a data: URL INSIDE the
+    // hazard_layers Firestore document (docs max 1MiB). Larger provincial
+    // datasets must be bundled as static assets instead — see DATA_GUIDE.md.
+    if (file.size > 700 * 1024) {
+      alert(`"${file.name}" is ${(file.size / 1024).toFixed(0)}KB — too large to store inline (max 700KB).\n\nBundle it as an app asset instead: drop it in frontend/public/data/hazards/ and follow DATA_GUIDE.md.`);
+      e.target.value = '';
+      return;
+    }
     setUploading(true);
-    const { file_url } = await cnpdrrmceoc.integrations.Core.UploadFile({ file });
-    setForm(prev => ({ ...prev, file_url }));
-    setUploading(false);
+    try {
+      const { file_url } = await cnpdrrmceoc.uploadFile(file, 'hazard_layers');
+      setForm(prev => ({ ...prev, file_url }));
+    } catch (err) {
+      console.error('Layer processing failed:', err);
+      alert(err.message || 'Layer processing failed.');
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (

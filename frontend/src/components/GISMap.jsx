@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, LayersControl, CircleMarker, useMap, GeoJSON, LayerGroup } from 'react-leaflet';
 import L from 'leaflet';
 import * as esri from 'esri-leaflet';
@@ -6,12 +6,11 @@ import 'leaflet/dist/leaflet.css';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
   Hospital, GraduationCap, Home, Flame,
-  Shield, Building2, Landmark, ArrowLeftRight, Info
+  Shield, Building2, Landmark, ArrowLeftRight
 } from 'lucide-react';
 
 import { MAP_CENTER, MAP_ZOOM } from '@/lib/constants';
 import { fetchGeoJSON } from '@/lib/spatial';
-import { Badge } from '@/components/ui/badge';
 
 /**
  * GeoRiskPH Authoritative Hazard Layers
@@ -160,6 +159,19 @@ export default function GISMap({
   const alertMarkers = alerts.filter(a => a.latitude && a.longitude && (a.status === 'active' || a.status === 'monitoring'));
   const activeLayers = layers.filter(l => l.is_active !== false && l.file_url);
 
+  // Incidents can carry coordinates as plain numbers (web app) or as a
+  // Firestore GeoPoint in `location` (Android app). Normalize both.
+  const incidentMarkers = incidents
+    .filter(i => i.status !== 'resolved')
+    .map(i => {
+      const lat = i.latitude ?? i.location?.latitude;
+      const lng = i.longitude ?? i.location?.longitude;
+      if (lat == null || lng == null) return null;
+      const priorityColor = { low: '#22c55e', medium: '#eab308', high: '#f97316', critical: '#dc2626' }[i.priority] || '#f97316';
+      return { ...i, _lat: lat, _lng: lng, _color: priorityColor };
+    })
+    .filter(Boolean);
+
   return (
     <div className={`relative w-full overflow-hidden rounded-lg border bg-background ${className}`} style={{ height }}>
       <MapContainer
@@ -211,6 +223,30 @@ export default function GISMap({
                     </CircleMarker>
                 ))}
              </LayerGroup>
+          </LayersControl.Overlay>
+
+          <LayersControl.Overlay checked name="Active Incidents">
+            <LayerGroup>
+              {incidentMarkers.map(i => (
+                <CircleMarker
+                  key={`i-${i.id}`}
+                  center={[i._lat, i._lng]}
+                  radius={8}
+                  fillColor={i._color}
+                  fillOpacity={0.8}
+                  color="#ffffff"
+                  weight={2}
+                >
+                  <Popup>
+                    <div className="text-xs">
+                      <strong>{i.title || 'Incident'}</strong><br />
+                      {i.type?.toString().replace(/_/g, ' ')} — {i.status}<br />
+                      {i.municipality}{i.barangay ? `, ${i.barangay}` : ''}
+                    </div>
+                  </Popup>
+                </CircleMarker>
+              ))}
+            </LayerGroup>
           </LayersControl.Overlay>
         </LayersControl>
       </MapContainer>
