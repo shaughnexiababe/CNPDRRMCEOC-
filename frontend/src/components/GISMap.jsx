@@ -10,21 +10,14 @@ import {
 } from 'lucide-react';
 
 import { MAP_CENTER, MAP_ZOOM } from '@/lib/constants';
-import { fetchGeoJSON } from '@/lib/spatial';
+import { fetchGeoJSON, GEORISK_LAYERS_CONFIG } from '@/lib/spatial';
 
 /**
  * GeoRiskPH Authoritative Hazard Layers
- * Uses Dynamic Rendering (esri-leaflet) for high performance
+ * Source of truth: GEORISK_LAYERS_CONFIG in lib/spatial.js (single config —
+ * previously this was duplicated here, and two of the seven services were
+ * dead at the ArcGIS server: GroundShaking 404, Tsunami stopped).
  */
-const GEORISK_LAYERS = [
-  { id: 'gr-flood', name: 'GeoRisk: Flood Susceptibility', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/MGBPublic/Flood/MapServer" },
-  { id: 'gr-landslide', name: 'GeoRisk: Rain-Induced Landslide', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/MGBPublic/RainInducedLandslide/MapServer" },
-  { id: 'gr-faults', name: 'GeoRisk: Active Faults', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/ActiveFault/MapServer" },
-  { id: 'gr-shaking', name: 'GeoRisk: Ground Shaking', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/GroundShaking/MapServer" },
-  { id: 'gr-tsunami', name: 'GeoRisk: Tsunami Hazard', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/Tsunami/MapServer" },
-  { id: 'gr-liquefaction', name: 'GeoRisk: Liquefaction', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/Liquefaction/MapServer" },
-  { id: 'gr-surge', name: 'GeoRisk: Storm Surge', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PAGASAPublic/StormSurge/MapServer" }
-];
 
 // FIX: Standard Leaflet Icon fix
 delete L.Icon.Default.prototype._getIconUrl;
@@ -35,55 +28,34 @@ L.Icon.Default.mergeOptions({
 });
 
 /**
- * Internal component to handle ArcGIS Dynamic Rendering.
- * Optimized with Layer-Aware Filtering and robust cleanup.
+ * ArcGIS dynamic-map overlay with CORRECT LayersControl integration.
+ *
+ * Previous version bugs:
+ *  1. layerDefs filtered MGB layers by `PROVINCE = ...` — but the MGB
+ *     Flood/Landslide layers have NO province field (verified against the
+ *     /layers metadata), so every export request returned an error and the
+ *     overlay rendered NOTHING.
+ *  2. The esri layer was addTo(map)'d directly on mount, ignoring the
+ *     LayersControl toggle entirely (with a fragile surgical-DOM cleanup
+ *     hack to catch up). Now the dynamic layer lives INSIDE a LayerGroup
+ *     owned by the Overlay, so Leaflet adds/removes it properly.
  */
-function ArcGISLayer({ url, name }) {
-  const map = useMap();
+function ArcGISLayer({ url }) {
+  const groupRef = React.useRef(null);
 
   useEffect(() => {
-    if (!url || !map) return;
+    const group = groupRef.current;
+    if (!group || !url) return;
 
-    const layerOptions = {
-      url: url,
-      opacity: 0.7,
-      useCors: true
-    };
-
-    // Apply Provincial Filter ONLY to MGB layers that support it
-    // PHIVOLCS and PAGASA layers lack 'PROVINCE' columns and will error if filtered.
-    if (url.includes('MGBPublic')) {
-      layerOptions.layerDefs = {
-        0: "PROVINCE = 'CAMARINES NORTE' OR Province = 'Camarines Norte'"
-      };
-    }
-
-    const layer = esri.dynamicMapLayer(layerOptions);
-    layer.addTo(map);
+    const dyn = esri.dynamicMapLayer({ url, opacity: 0.7, useCors: true });
+    group.addLayer(dyn);
 
     return () => {
-      if (layer) {
-        map.removeLayer(layer);
-
-        // Surgical DOM Cleanup to prevent ghosting
-        try {
-          const mapContainer = map.getContainer();
-          const images = mapContainer.getElementsByClassName('leaflet-image-layer');
-          const servicePath = url.includes('/rest/services/') ? url.split('/rest/services/')[1] : url;
-
-          for (let i = images.length - 1; i >= 0; i--) {
-            if (images[i].src && images[i].src.includes(servicePath)) {
-              images[i].remove();
-            }
-          }
-        } catch (e) {
-          console.warn("Manual cleanup error for", name);
-        }
-      }
+      try { group.removeLayer(dyn); } catch { /* already removed */ }
     };
-  }, [url, map, name]);
+  }, [url, groupRef]);
 
-  return null;
+  return <LayerGroup ref={(g) => { groupRef.current = g; }} />;
 }
 
 function RemoteGeoJSON({ url, color, layerName }) {
@@ -188,12 +160,11 @@ export default function GISMap({
             <TileLayer attribution='&copy; Esri' url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
           </LayersControl.BaseLayer>
 
-          {/* GeoRisk Professional Layers */}
-          {GEORISK_LAYERS.map((layer) => (
-            <LayersControl.Overlay key={layer.id} name={`NATIONAL: ${layer.name.replace('GeoRisk: ', '')}`}>
-              <LayerGroup>
-                <ArcGISLayer url={layer.url} name={layer.name} />
-              </LayerGroup>
+          {/* GeoRiskPH Authoritative Layers (mapServer = dynamic raster;
+              Flood is CamNorte's primary hazard → on by default) */}
+          {GEORISK_LAYERS_CONFIG.map((layer) => (
+            <LayersControl.Overlay key={layer.id} name={`GeoRisk: ${layer.name.replace('GeoRisk: ', '')}`} checked={layer.id === 'gr-flood'}>
+              <ArcGISLayer url={layer.mapServer} name={layer.name} />
             </LayersControl.Overlay>
           ))}
 

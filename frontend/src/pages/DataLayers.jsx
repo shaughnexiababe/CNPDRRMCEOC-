@@ -261,7 +261,10 @@ export default function DataLayers() {
         </CardContent>
       </Card>
 
-      {/* Authoritative GeoRiskPH Layers Section */}
+      {/* Authoritative GeoRiskPH Layers Section — only live ArcGIS services
+          are listed (GroundShaking/Tsunami were removed from the GeoRisk
+          directory). Toggle their map visibility from the GIS Map's
+          layers control (top-right). */}
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <ShieldCheck className="w-5 h-5 text-green-600" />
@@ -279,7 +282,7 @@ export default function DataLayers() {
                   </div>
                 </div>
                 <div className="shrink-0 text-[10px] text-green-600 font-medium">
-                  Active
+                  {layer.id === 'gr-flood' ? 'On map (default)' : 'Toggle on map'}
                 </div>
               </CardContent>
             </Card>

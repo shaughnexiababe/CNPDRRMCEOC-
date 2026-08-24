@@ -227,12 +227,15 @@ const webMercatorToWgs84 = (x, y) => {
 };
 
 // Official GeoRiskPH Authoritative Layers Configuration (MapServer REST)
+// Verified live against the GeoRisk ArcGIS Server 11.0 directory on
+// 2026-08-24. GroundShaking (404) and Tsunami (service stopped) were
+// REMOVED from PHIVOLCSPublic and are no longer listed anywhere.
+// url → feature layer (/0) used by GeoJSON queries (RiskAnalytics);
+// mapServer → service root used by dynamic raster rendering (GISMap).
 export const GEORISK_LAYERS_CONFIG = [
-  { id: 'gr-flood', name: 'GeoRisk: Flood Susceptibility', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/MGBPublic/Flood/MapServer/0", type: 'map' },
-  { id: 'gr-landslide', name: 'GeoRisk: Rain-Induced Landslide', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/MGBPublic/RainInducedLandslide/MapServer/0", type: 'map' },
-  { id: 'gr-faults', name: 'GeoRisk: Active Faults', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/ActiveFault/MapServer/0", type: 'map' },
-  { id: 'gr-shaking', name: 'GeoRisk: Ground Shaking', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/GroundShaking/MapServer/0", type: 'map' },
-  { id: 'gr-liquefaction', name: 'GeoRisk: Liquefaction', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/Liquefaction/MapServer/0", type: 'map' },
-  { id: 'gr-tsunami', name: 'GeoRisk: Tsunami Hazard', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/Tsunami/MapServer/0", type: 'map' },
-  { id: 'gr-surge', name: 'GeoRisk: Storm Surge', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PAGASAPublic/StormSurge/MapServer/0", type: 'map' },
+  { id: 'gr-flood', name: 'GeoRisk: Flood Susceptibility', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/MGBPublic/Flood/MapServer/0", mapServer: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/MGBPublic/Flood/MapServer", type: 'map' },
+  { id: 'gr-landslide', name: 'GeoRisk: Rain-Induced Landslide', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/MGBPublic/RainInducedLandslide/MapServer/0", mapServer: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/MGBPublic/RainInducedLandslide/MapServer", type: 'map' },
+  { id: 'gr-faults', name: 'GeoRisk: Active Faults', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/ActiveFault/MapServer/0", mapServer: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/ActiveFault/MapServer", type: 'map' },
+  { id: 'gr-liquefaction', name: 'GeoRisk: Liquefaction', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/Liquefaction/MapServer/0", mapServer: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/Liquefaction/MapServer", type: 'map' },
+  { id: 'gr-surge', name: 'GeoRisk: Storm Surge', url: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PAGASAPublic/StormSurge/MapServer/0", mapServer: "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PAGASAPublic/StormSurge/MapServer", type: 'map' },
 ];
