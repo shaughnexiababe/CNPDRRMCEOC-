@@ -15,7 +15,7 @@ The repo's `app/google-services.json` still registers `com.example.cnpdrrmoeoc`,
 
 ### P-02 · Rotate the leaked Gemini key & configure Android AI
 A real-format Gemini key was committed to git history (`ChatViewModel.kt`, now removed — rotated anyway).
-1. Google AI Studio → revoke key `AIzaSyD0yM6OogXKluE1esMrPR7ciKMBPJcXCl0` and create a new one.
+1. Google AI Studio → revoke the old key (it is still visible in git history at `app/src/main/java/com/example/cnpdrrmoeoc/ui/ChatViewModel.kt` in commits before this work) and create a new one. Do NOT paste keys into docs or code — repo is scanned by GitGuardian.
 2. Add to **`local.properties`** (already gitignored) at the repo root:
    ```
    GEMINI_API_KEY=your-new-key
