@@ -275,7 +275,14 @@ export const createClient = ({ firebaseConfig } = {}) => {
             const unitSnap = await transaction.get(unitRef);
             if (!unitSnap.exists()) throw new Error("Unit not found");
             if (unitSnap.data().status !== 'available') {
-              throw new Error(`Unit is ${unitSnap.data().status} and cannot be dispatched.`);
+              throw new Error(`Unit is ${unitSnap.data().status} and cannot be dispatched`);
+            }
+
+            const incidentSnap = await transaction.get(incidentRef);
+            if (!incidentSnap.exists()) throw new Error("Incident not found");
+            const incStatus = incidentSnap.data().status;
+            if (incStatus !== 'reported' && incStatus !== 'verified') {
+              throw new Error(`Incident status is "${incStatus}" and cannot be dispatched`);
             }
 
             transaction.update(unitRef, { status: 'dispatched', updated_at: serverTimestamp() });
@@ -348,6 +355,9 @@ export const createClient = ({ firebaseConfig } = {}) => {
       logout: async (url) => {
         await signOut(auth);
         if (url) window.location.href = url; else window.location.reload();
+      },
+      onAuthStateChanged: (callback) => {
+        return onAuthStateChanged(auth, callback);
       }
     },
     entities: new Proxy({}, entityHandler),

@@ -25,20 +25,15 @@ export default function ProtectedRoute({ fallback = <DefaultFallback />, unauthe
     return fallback;
   }
 
-  if (authError) {
-    if (authError.type === 'user_not_registered') {
-      return <UserNotRegisteredError />;
-    }
-    return unauthenticatedElement;
-  }
-
   if (!isAuthenticated) {
     return unauthenticatedElement;
   }
 
-  // Role-based access control at the ROUTE level (not just sidebar hiding):
-  // previously a citizen could type /users or /layers directly and reach
-  // admin tooling.
+  if (authError && authError.type === 'user_not_registered') {
+    return <UserNotRegisteredError />;
+  }
+
+  // Role-based access control at the ROUTE level:
   if (roles && roles.length > 0) {
     const effectiveRole = user?.role || 'citizen';
     if (!roles.includes(effectiveRole)) {

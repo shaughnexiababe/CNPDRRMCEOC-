@@ -11,10 +11,45 @@ export const AuthProvider = ({ children }) => {
   const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
-    checkUserAuth();
-  }, []);
+    // L2: Persistent auth state listener
+    let unsubscribe;
+    if (cnpdrrmceoc.auth.onAuthStateChanged) {
+      unsubscribe = cnpdrrmceoc.auth.onAuthStateChanged(async (firebaseUser) => {
+        setAuthError(null);
+        if (firebaseUser) {
+          try {
+            const profile = await cnpdrrmceoc.auth.me();
+            setUser(profile || { id: firebaseUser.uid, email: firebaseUser.email, role: 'citizen' });
+            setIsAuthenticated(true);
+          } catch (e) {
+            console.error('Error fetching user profile:', e);
+            setIsAuthenticated(true);
+            setUser({ id: firebaseUser.uid, email: firebaseUser.email, role: 'citizen' });
+          }
+        } else {
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+        setIsLoadingAuth(false);
+        setAuthChecked(true);
+      });
+    } else {
+      checkUserAuth();
+    }
+
+    const handleFocus = () => {
+      if (isAuthenticated) checkUserAuth();
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [isAuthenticated]);
 
   const checkUserAuth = async () => {
+    setAuthError(null);
     try {
       setIsLoadingAuth(true);
       const currentUser = await cnpdrrmceoc.auth.me();
@@ -22,11 +57,13 @@ export const AuthProvider = ({ children }) => {
         setUser(currentUser);
         setIsAuthenticated(true);
       } else {
+        setUser(null);
         setIsAuthenticated(false);
       }
     } catch (error) {
       console.error('User auth check failed:', error);
       setIsAuthenticated(false);
+      setUser(null);
     } finally {
       setIsLoadingAuth(false);
       setAuthChecked(true);
@@ -34,6 +71,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (email, password) => {
+    setAuthError(null);
     setIsLoadingAuth(true);
     try {
       const result = await cnpdrrmceoc.auth.login(email, password);
@@ -43,7 +81,7 @@ export const AuthProvider = ({ children }) => {
       return result;
     } catch (error) {
       console.error('Login failed:', error);
-      setAuthError({ type: 'auth_failed', message: 'Invalid credentials' });
+      setAuthError({ type: 'auth_failed', message: error.message || 'Invalid credentials' });
       throw error;
     } finally {
       setIsLoadingAuth(false);
@@ -51,6 +89,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const register = async (data) => {
+    setAuthError(null);
     setIsLoadingAuth(true);
     try {
       const newUser = await cnpdrrmceoc.auth.register(data);
@@ -60,6 +99,7 @@ export const AuthProvider = ({ children }) => {
       return newUser;
     } catch (error) {
       console.error('Registration failed:', error);
+      setAuthError({ type: 'register_failed', message: error.message || 'Registration failed' });
       throw error;
     } finally {
       setIsLoadingAuth(false);
@@ -67,6 +107,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = (shouldRedirect = true) => {
+    setAuthError(null);
     setUser(null);
     setIsAuthenticated(false);
     cnpdrrmceoc.auth.logout(shouldRedirect ? window.location.origin : null);
@@ -81,8 +122,6 @@ export const AuthProvider = ({ children }) => {
       user,
       isAuthenticated,
       isLoadingAuth,
-      // Kept for backwards compatibility with App.jsx; there is no external
-      // "public settings" service anymore (that was a leftover platform API).
       isLoadingPublicSettings: false,
       authError,
       authChecked,

@@ -14,8 +14,10 @@ import { Users as UsersIcon, UserPlus, Shield, HardHat, User, Trash2, Copy, Chec
 import { cn } from '@/lib/utils';
 import { apiPost } from '@/lib/api';
 import { MUNICIPALITIES } from '@/lib/constants';
+import { useToast } from '@/components/ui/use-toast';
 
 export default function UserManagement() {
+  const { toast } = useToast();
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
   const [filterRole, setFilterRole] = useState('all');
@@ -220,9 +222,8 @@ export default function UserManagement() {
                         value={user.role}
                         disabled={isSelf}
                         onValueChange={(newRole) => {
-                          if (confirm(`Change ${user.full_name}'s role to ${newRole}?`)) {
-                            updateRoleMutation.mutate({ id: user.id, role: newRole });
-                          }
+                          updateRoleMutation.mutate({ id: user.id, role: newRole });
+                          toast({ title: "Role updated", description: `Updated ${user.full_name}'s role to ${newRole}.` });
                         }}
                        >
                          <SelectTrigger className="h-8 w-36 text-xs">
@@ -243,7 +244,8 @@ export default function UserManagement() {
                       disabled={isSelf}
                       className="text-muted-foreground hover:text-destructive"
                       onClick={() => {
-                        if(confirm('Delete user? This cannot be undone.')) deleteUserMutation.mutate(user.id);
+                        deleteUserMutation.mutate(user.id);
+                        toast({ title: "User deleted", description: `Removed account for ${user.full_name}.` });
                       }}
                     >
                       <Trash2 className="w-4 h-4" />
