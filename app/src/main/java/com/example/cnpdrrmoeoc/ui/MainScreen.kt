@@ -42,20 +42,19 @@ import org.maplibre.android.style.sources.GeoJsonSource
 fun MainScreen(viewModel: GisViewModel = hiltViewModel()) {
     val navController = rememberNavController()
     val user by viewModel.currentUser.collectAsState()
-    val activeAlerts by viewModel.activeAlerts.collectAsState()
     val trackingStatus by viewModel.trackingStatus.collectAsState()
     val context = LocalContext.current
 
     // Ask for notification permission (Android 13+) so the tracking
     // foreground-service notification and alert sounds are visible/heard.
     val notifPermissionLauncher = rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
     ) { /* granted or not, app still works */ }
     LaunchedEffect(Unit) {
-        if (android.os.Build.VERSION.SDK_INT >= 33 &&
-            androidx.core.content.ContextCompat.checkSelfPermission(
-                context, android.Manifest.permission.POST_NOTIFICATIONS
-            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        if ((android.os.Build.VERSION.SDK_INT >= 33) &&
+            (androidx.core.content.ContextCompat.checkSelfPermission(
+                context, android.Manifest.permission.POST_NOTIFICATIONS,
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED)
         ) {
             notifPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -64,7 +63,7 @@ fun MainScreen(viewModel: GisViewModel = hiltViewModel()) {
     // Mirror responder tracking state into the foreground service.
     // START_STICKY vs stop: only send STOP when we actually started it,
     // otherwise every cold start briefly spawns the service just to stop it.
-    var trackingServiceRunning by remember { mutableStateOf(false) }
+    var trackingServiceRunning by remember { mutableStateOf(value = false) }
     LaunchedEffect(trackingStatus) {
         val active = trackingStatus
         if (active != null) {
@@ -87,10 +86,9 @@ fun MainScreen(viewModel: GisViewModel = hiltViewModel()) {
     if (user == null) {
         LoginScreen(
             onLogin = { email, password -> viewModel.login(email, password) },
-            onRegister = { name, email, password, municipality -> 
-                viewModel.register(name, email, password, municipality) 
-            }
-        )
+        ) { name, email, password, municipality ->
+            viewModel.register(name, email, password, municipality)
+        }
         return
     }
 
@@ -201,19 +199,18 @@ fun MainScreen(viewModel: GisViewModel = hiltViewModel()) {
         if (currentRoute != "report") {
             BantayFabOverlay(
                 gisViewModel = viewModel,
-                onNavigate = { route: String ->
-                    val canNavigate = when(route) {
-                        "operations", "analytics", "notes" -> role != "citizen"
-                        "users" -> role == "admin"
-                        else -> true
-                    }
-                    if (canNavigate) {
-                        navController.navigate(route)
-                        val index = navigationItems.indexOfFirst { it.route == route }
-                        if (index != -1) selectedIndex = index
-                    }
+            ) { route: String ->
+                val canNavigate = when (route) {
+                    "operations", "analytics", "notes" -> role != "citizen"
+                    "users" -> role == "admin"
+                    else -> true
                 }
-            )
+                if (canNavigate) {
+                    navController.navigate(route)
+                    val index = navigationItems.indexOfFirst { it.route == route }
+                    if (index != -1) selectedIndex = index
+                }
+            }
         }
     }
 }

@@ -1,7 +1,6 @@
 package com.example.cnpdrrmoeoc.gis
 
 import org.maplibre.geojson.FeatureCollection
-import org.maplibre.geojson.Point
 import org.maplibre.geojson.Polygon
 
 /**
@@ -10,7 +9,7 @@ import org.maplibre.geojson.Polygon
 fun String.toFeatureCollection(): FeatureCollection? {
     return try {
         FeatureCollection.fromJson(this)
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         null
     }
 }

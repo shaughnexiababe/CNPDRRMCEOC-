@@ -12,7 +12,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -36,7 +35,7 @@ import com.example.cnpdrrmoeoc.ui.GisViewModel
 fun BantayFabOverlay(
     gisViewModel: GisViewModel,
     chatViewModel: ChatViewModel = hiltViewModel(),
-    onNavigate: (String) -> Unit = {}
+    onNavigate: (String) -> Unit = {},
 ) {
     val isChatOpen by chatViewModel.isChatOpen.collectAsState()
     val botAction by chatViewModel.botAction.collectAsState()
@@ -52,11 +51,11 @@ fun BantayFabOverlay(
                 }
                 is BotAction.NavigateToMap -> {
                     onNavigate("safetymap")
-                    chatViewModel.setChatOpen(false)
+                    chatViewModel.setChatOpen(open = false)
                 }
                 is BotAction.NavigateToAlerts -> {
                     onNavigate("alerts")
-                    chatViewModel.setChatOpen(false)
+                    chatViewModel.setChatOpen(open = false)
                 }
             }
             chatViewModel.clearAction()
@@ -70,7 +69,7 @@ fun BantayFabOverlay(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.4f))
-                    .clickable { chatViewModel.setChatOpen(false) }
+                    .clickable { chatViewModel.setChatOpen(open = false) },
             )
         }
 
@@ -88,10 +87,9 @@ fun BantayFabOverlay(
                     chatViewModel = chatViewModel,
                     location = location,
                     activeIncidents = activeIncidents.size,
-                    onClose = { chatViewModel.setChatOpen(false) }
-                )
+                ) { chatViewModel.setChatOpen(open = false) }
             } else {
-                BantayFAB(onClick = { chatViewModel.setChatOpen(true) })
+                BantayFAB { chatViewModel.setChatOpen(open = true) }
             }
         }
     }
@@ -108,7 +106,6 @@ fun BantayFAB(onClick: () -> Unit) {
             modifier = Modifier.size(64.dp)
         ) {
             val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.boy_kalasag))
-            val progress by animateLottieCompositionAsState(composition, iterations = LottieConstants.IterateForever)
 
             if (composition != null) {
                 // Using sbk.png from res/drawable

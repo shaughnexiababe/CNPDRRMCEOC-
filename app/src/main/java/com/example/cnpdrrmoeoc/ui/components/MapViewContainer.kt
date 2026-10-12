@@ -6,7 +6,6 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -28,7 +27,7 @@ import org.maplibre.android.maps.Style
 fun MapViewContainer(
     modifier: Modifier = Modifier,
     isOfflineMode: Boolean = false,
-    onMapReady: (org.maplibre.android.maps.MapLibreMap) -> Unit = {}
+    onMapReady: (org.maplibre.android.maps.MapLibreMap) -> Unit = {},
 ) {
     val context = LocalContext.current
 
@@ -65,7 +64,7 @@ fun MapViewContainer(
 
     // Handle MapView lifecycle
     val lifecycleObserver = rememberMapLifecycleObserver(mapView)
-    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle, mapView) {
         lifecycle.addObserver(lifecycleObserver)
         onDispose {

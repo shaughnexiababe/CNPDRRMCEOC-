@@ -8,7 +8,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.google.firebase.Timestamp
 import com.example.cnpdrrmoeoc.data.ShiftNote
 
 @Composable
@@ -16,7 +15,7 @@ fun ShiftNotesView(viewModel: GisViewModel) {
     val currentUser by viewModel.currentUser.collectAsState()
     val notes by viewModel.shiftNotes.collectAsState()
     var newNoteText by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(value = false) }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("Shift Handoff Log", style = MaterialTheme.typography.headlineSmall)
@@ -29,12 +28,12 @@ fun ShiftNotesView(viewModel: GisViewModel) {
                     onValueChange = { newNoteText = it },
                     label = { Text("Add context for the next shift...") },
                     modifier = Modifier.fillMaxWidth(),
-                    minLines = 2
+                    minLines = 2,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
                     onClick = {
-                        if (newNoteText.isNotBlank() && currentUser != null) {
+                        if ((newNoteText.isNotBlank()) && (currentUser != null)) {
                             viewModel.addShiftNote(newNoteText)
                             newNoteText = ""
                         }

@@ -17,8 +17,8 @@ class ChatViewModel @Inject constructor() : ViewModel() {
     private val _uiState = MutableStateFlow<ChatUiState>(ChatUiState.Idle)
     val uiState: StateFlow<ChatUiState> = _uiState
 
-    private val _messages = MutableStateFlow<List<ChatMessage>>(
-        listOf(ChatMessage("Dios Marhay na aldaw! I am Super Batang Kalasag, your CNPDRRMEOC AI wingman. How can I help you protect Camarines Norte today?", false))
+    private val _messages = MutableStateFlow(
+        listOf(ChatMessage("Dios Marhay na aldaw! I am Super Batang Kalasag, your CNPDRRMEOC AI wingman. How can I help you protect Camarines Norte today?", isUser = false))
     )
     val messages: StateFlow<List<ChatMessage>> = _messages
 
@@ -65,11 +65,11 @@ class ChatViewModel @Inject constructor() : ViewModel() {
 
     fun sendMessage(userText: String, locationContext: String, activeIncidents: String) {
         val userMessage = ChatMessage(userText, isUser = true)
-        _messages.value = _messages.value + userMessage
+        _messages.value += userMessage
 
         val model = generativeModel
         if (model == null) {
-            _messages.value = _messages.value + ChatMessage(
+            _messages.value += ChatMessage(
                 "Pasensya na — the AI service is not configured on this build (missing Gemini API key). " +
                     "For emergencies, call the PDRRMO hotline: (054) 440-1234.",
                 isUser = false
@@ -98,10 +98,10 @@ class ChatViewModel @Inject constructor() : ViewModel() {
                     botText.contains("[NAVIGATE_ALERTS]") -> _botAction.value = BotAction.NavigateToAlerts
                 }
 
-                _messages.value = _messages.value + ChatMessage(botText, isUser = false)
+                _messages.value += ChatMessage(botText, isUser = false)
                 _uiState.value = ChatUiState.Idle
-            } catch (e: Exception) {
-                _messages.value = _messages.value + ChatMessage("Maugma! May sadit na problema sa signal ko. Mag-ingat kamo!", false)
+            } catch (_: Exception) {
+                _messages.value += ChatMessage("Maugma! May sadit na problema sa signal ko. Mag-ingat kamo!", false)
                 _uiState.value = ChatUiState.Idle
             }
         }

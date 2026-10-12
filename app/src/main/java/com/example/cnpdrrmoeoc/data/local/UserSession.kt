@@ -2,6 +2,7 @@ package com.example.cnpdrrmoeoc.data.local
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.example.cnpdrrmoeoc.data.User
@@ -12,7 +13,7 @@ import javax.inject.Singleton
 
 @Singleton
 class UserSession @Inject constructor(
-    @ApplicationContext context: Context
+    @ApplicationContext context: Context,
 ) {
     private val masterKey = MasterKey.Builder(context)
         .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -30,19 +31,19 @@ class UserSession @Inject constructor(
 
     fun saveUser(user: User) {
         val json = gson.toJson(user)
-        prefs.edit().putString("cached_user", json).apply()
+        prefs.edit { putString("cached_user", json) }
     }
 
     fun getUser(): User? {
         val json = prefs.getString("cached_user", null) ?: return null
         return try {
             gson.fromJson(json, User::class.java)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
 
     fun clear() {
-        prefs.edit().remove("cached_user").apply()
+        prefs.edit { remove("cached_user") }
     }
 }

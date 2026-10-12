@@ -35,7 +35,7 @@ class GisRepository @Inject constructor(
     private val incidentDao: IncidentDao,
     private val geoRiskApi: GeoRiskApiService,
     private val alertApi: AlertApiService,
-    private val notifyApi: NotifyApi
+    private val notifyApi: NotifyApi,
 ) {
     companion object { private const val TAG = "GisRepository" }
 
@@ -290,7 +290,7 @@ class GisRepository @Inject constructor(
                     "status", nextStatus,
                     "updated_at", FieldValue.serverTimestamp())
 
-                if (nextStatus == "on_scene" && incidentId != null) {
+                if ((nextStatus == "on_scene") && (incidentId != null)) {
                     transaction.update(
                         firestore.collection("incidents").document(incidentId),
                         "status", "responding",
@@ -363,7 +363,7 @@ class GisRepository @Inject constructor(
      * on connectivity restore.
      */
     suspend fun syncPendingReports(): Int {
-        val pending = try { incidentDao.getPendingOnce() } catch (e: Exception) { emptyList() }
+        val pending = try { incidentDao.getPendingOnce() } catch (_: Exception) { emptyList() }
         var synced = 0
         for (row in pending) {
             try {
@@ -380,7 +380,7 @@ class GisRepository @Inject constructor(
                     status = "reported",
                     priority = if (row.type == "sos") "critical" else "medium",
                     reported_by_id = row.reportedById,
-                    photo_urls = row.photoUrls.split("\n").filter { it.isNotBlank() }.take(2),
+                    photo_urls = row.photoUrls.split("\n").asSequence().filter { it.isNotBlank() }.take(2).toList(),
                     created_at = Timestamp(java.util.Date(row.createdDate)),
                     updated_at = Timestamp.now()
                 )

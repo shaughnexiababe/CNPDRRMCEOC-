@@ -14,8 +14,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import android.content.Intent
 import android.net.Uri
+import androidx.core.net.toUri
 import androidx.compose.ui.platform.LocalContext
-import com.example.cnpdrrmoeoc.data.Facility
 
 @Composable
 fun EvacuationCentersView(viewModel: GisViewModel) {
@@ -23,14 +23,14 @@ fun EvacuationCentersView(viewModel: GisViewModel) {
     val user by viewModel.currentUser.collectAsState()
     val currentLocation by viewModel.currentLocation.collectAsState()
     val centers by viewModel.evacuationCenters.collectAsState()
-    var isLoading by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(value = false) }
 
     val sortedCenters = remember(centers, currentLocation) {
         centers.sortedBy { center ->
             currentLocation?.let { (lat, lon) ->
                 val dx = center.longitude - lon
                 val dy = center.latitude - lat
-                dx * dx + dy * dy
+                (dx * dx) + (dy * dy)
             } ?: 0.0
         }
     }
@@ -40,7 +40,7 @@ fun EvacuationCentersView(viewModel: GisViewModel) {
         Text(
             "Showing operational centers near ${user?.municipality ?: "your area"}", 
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.secondary
+            color = MaterialTheme.colorScheme.secondary,
         )
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -96,16 +96,12 @@ fun EvacuationCentersView(viewModel: GisViewModel) {
                                 onClick = {
                                     // Open turn-by-turn navigation in Google Maps
                                     // (was a no-op stub).
-                                    val uri = Uri.parse(
-                                        "google.navigation:q=${center.latitude},${center.longitude}"
-                                    )
+                                    val uri = "google.navigation:q=${center.latitude},${center.longitude}".toUri()
                                     try {
                                         context.startActivity(Intent(Intent.ACTION_VIEW, uri))
                                     } catch (_: Exception) {
                                         // No maps app installed — fall back to browser
-                                        val web = Uri.parse(
-                                            "https://www.google.com/maps/dir/?api=1&destination=${center.latitude},${center.longitude}"
-                                        )
+                                        val web = "https://www.google.com/maps/dir/?api=1&destination=${center.latitude},${center.longitude}".toUri()
                                         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, web)) }
                                     }
                                 },

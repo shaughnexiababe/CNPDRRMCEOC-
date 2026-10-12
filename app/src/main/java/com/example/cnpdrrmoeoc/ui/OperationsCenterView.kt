@@ -18,8 +18,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.cnpdrrmoeoc.data.Incident
 import com.example.cnpdrrmoeoc.data.Unit as PdrrmoUnit
 import com.example.cnpdrrmoeoc.ui.components.Base64Photo
-import com.example.cnpdrrmoeoc.ui.components.MapViewContainer
 import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.seconds
 
 @Composable
 fun OperationsCenterView(viewModel: GisViewModel = hiltViewModel()) {
@@ -38,7 +38,7 @@ fun OperationsCenterView(viewModel: GisViewModel = hiltViewModel()) {
                     ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
                 val r = RingtoneManager.getRingtone(context, alarmUri)
                 r.play()
-                delay(4000)
+                delay(4.seconds)
                 if (r.isPlaying) r.stop()
             } catch (e: Exception) { e.printStackTrace() }
         }
@@ -48,11 +48,11 @@ fun OperationsCenterView(viewModel: GisViewModel = hiltViewModel()) {
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             StatCard(modifier = Modifier.weight(1f), label = "Incidents", value = activeIncidents.size.toString(), color = Color(0xFF3B82F6))
             StatCard(modifier = Modifier.weight(1f), label = "Verifying", value = activeIncidents.count { it.status == "reported" }.toString(), color = Color(0xFFF59E0B))
-            StatCard(modifier = Modifier.weight(1f), label = "Dispatched", value = activeIncidents.count { it.status == "dispatched" || it.status == "responding" }.toString(), color = Color(0xFF10B981))
+            StatCard(modifier = Modifier.weight(1f), label = "Dispatched", value = activeIncidents.count { (it.status == "dispatched") || (it.status == "responding") }.toString(), color = Color(0xFF10B981))
             StatCard(modifier = Modifier.weight(1f), label = "Units Avail", value = availableUnits.count { it.status == "available" }.toString(), color = Color(0xFF8B5CF6))
         }
 
@@ -72,8 +72,7 @@ fun OperationsCenterView(viewModel: GisViewModel = hiltViewModel()) {
                     incident = incident,
                     onVerify = { viewModel.verifyIncident(incident.id) },
                     onDispatch = { selectedIncidentForDispatch = incident },
-                    onResolve = { viewModel.resolveIncident(incident.id) }
-                )
+                ) { viewModel.resolveIncident(incident.id) }
             }
         }
     }
@@ -163,7 +162,7 @@ fun IncidentOpsItem(
                     }
                 }
 
-                if (incident.status == "dispatched" || incident.status == "responding") {
+                if ((incident.status == "dispatched") || (incident.status == "responding")) {
                     TextButton(onClick = onResolve) {
                         Text("Mark Resolved")
                     }

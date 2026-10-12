@@ -36,7 +36,7 @@ object PhotoCompressor {
                 BitmapFactory.decodeStream(it, null, bounds)
             } ?: return null
 
-            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+            if ((bounds.outWidth <= 0) || (bounds.outHeight <= 0)) return null
 
             // Downsample by power of two to get close to MAX_DIM
             var sample = 1

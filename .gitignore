@@ -34,3 +34,4 @@ sdk/.npmrc
 
 # Misc
 *.log
+*.zip

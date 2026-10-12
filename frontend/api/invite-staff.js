@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   try {
     const caller = await verifyRequester(req, { adminOnly: true });
     const body = await readJsonBody(req);
-    const { email, fullName, role } = body;
+    const { email, fullName, role, municipality } = body;
 
     if (!email || !fullName || !role) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -24,9 +24,14 @@ export default async function handler(req, res) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ error: 'Invalid email address' });
     }
-    if (!['admin', 'eoc_personnel'].includes(role)) {
+    if (!['admin', 'eoc_personnel', 'mdrrmo'].includes(role)) {
       return res.status(400).json({ error: 'Invalid staff role' });
     }
+    if (role === 'mdrrmo' && !municipality) {
+      return res.status(400).json({ error: 'Municipality is required for MDRRMO role' });
+    }
+
+    const assignedMunicipality = role === 'mdrrmo' ? municipality : 'PROVINCIAL_EOC';
 
     const userRecord = await getAdminAuth().createUser({
       email,
@@ -38,7 +43,7 @@ export default async function handler(req, res) {
       email,
       full_name: fullName,
       role,
-      municipality: 'PROVINCIAL_EOC',
+      municipality: assignedMunicipality,
       created_at: FieldValue.serverTimestamp(),
     });
 

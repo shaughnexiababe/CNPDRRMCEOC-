@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.dp
 fun Base64Photo(
     dataUrl: String,
     modifier: Modifier = Modifier,
-    size: Dp = 56.dp
+    size: Dp = 56.dp,
 ) {
     val bitmap = remember(dataUrl) {
         runCatching {

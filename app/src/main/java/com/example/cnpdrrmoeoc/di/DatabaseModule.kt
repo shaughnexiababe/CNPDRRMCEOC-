@@ -21,7 +21,7 @@ object DatabaseModule {
         return Room.databaseBuilder(
             context,
             AppDatabase::class.java,
-            "cnpdrrmo_db"
+            "cnpdrrmo_db",
         ).fallbackToDestructiveMigration().build()
     }
 

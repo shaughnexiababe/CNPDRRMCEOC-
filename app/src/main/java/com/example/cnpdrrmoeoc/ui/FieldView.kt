@@ -3,7 +3,6 @@ package com.example.cnpdrrmoeoc.ui
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
-import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -97,7 +96,7 @@ fun FieldView(viewModel: GisViewModel = hiltViewModel()) {
         ActivityResultContracts.TakePicture()
     ) { ok ->
         val uri = pendingCameraUri
-        if (ok && uri != null) {
+        if ((ok) && (uri != null)) {
             // Compress off the main thread (decode + JPEG encode)
             photoScope.launch(Dispatchers.Default) {
                 val compressed = PhotoCompressor.compressToDataUrl(context, uri)

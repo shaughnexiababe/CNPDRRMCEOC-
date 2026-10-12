@@ -17,9 +17,9 @@ class AuthRepository @Inject constructor(
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
     private val messaging: FirebaseMessaging,
-    private val userSession: UserSession
+    private val userSession: UserSession,
 ) {
-    private val _currentUser = MutableStateFlow<User?>(userSession.getUser())
+    private val _currentUser = MutableStateFlow(userSession.getUser())
     val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
     init {
@@ -117,13 +117,13 @@ class AuthRepository @Inject constructor(
 
     /** Staff devices also listen for critical/SOS dispatch pushes. */
     private fun subscribeStaffTopics(role: String) {
-        if (role == "eoc_personnel" || role == "admin") {
+        if ((role == "eoc_personnel") || (role == "admin")) {
             messaging.subscribeToTopic("dispatch_staff")
         }
     }
 
     private fun unsubscribeStaffTopics(role: String) {
-        if (role == "eoc_personnel" || role == "admin") {
+        if ((role == "eoc_personnel") || (role == "admin")) {
             messaging.unsubscribeFromTopic("dispatch_staff")
         }
     }
@@ -155,7 +155,7 @@ class AuthRepository @Inject constructor(
                     _currentUser.value = it
                 }
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
         }
     }
 }

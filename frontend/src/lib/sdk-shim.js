@@ -15,6 +15,9 @@ import {
 } from 'firebase/auth';
 import {
   getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   collection,
   doc,
   getDoc,
@@ -70,7 +73,17 @@ export const createClient = ({ firebaseConfig } = {}) => {
   // which throws "Firebase App named '[DEFAULT]' already exists".
   const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
   const auth = getAuth(app);
-  const db = getFirestore(app);
+  // Offline-first Firestore: reads are served from the local cache and writes are
+  // queued and synced when the connection returns. Important for MDRRMOs filing
+  // reports while power/signal is unstable during a typhoon. Falls back to the
+  // default in-memory instance if persistence is unavailable (private mode, old
+  // browser) or Firestore was already initialised (hot reload).
+  let db;
+  try {
+    db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+  } catch {
+    db = getFirestore(app);
+  }
 
   const getEntityCollection = (name) => {
     // Map entity names to Firestore collection names.

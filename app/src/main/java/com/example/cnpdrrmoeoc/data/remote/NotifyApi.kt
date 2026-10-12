@@ -25,7 +25,7 @@ import javax.inject.Singleton
 @Singleton
 class NotifyApi @Inject constructor(
     private val okHttp: OkHttpClient,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
 ) {
     companion object {
         private const val TAG = "NotifyApi"

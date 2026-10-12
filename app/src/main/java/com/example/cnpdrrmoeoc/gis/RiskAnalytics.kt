@@ -2,7 +2,6 @@ package com.example.cnpdrrmoeoc.gis
 
 import org.maplibre.geojson.Point
 import org.maplibre.geojson.Polygon
-import org.maplibre.geojson.LineString
 
 /**
  * Utility for performing geospatial risk analysis using MapLibre GeoJSON models.
@@ -18,7 +17,7 @@ object RiskAnalytics {
         val lat = point.latitude()
         
         // Handle single outer ring
-        val outerRing = polygon.coordinates()?.firstOrNull() ?: return false
+        val outerRing = polygon.coordinates().firstOrNull() ?: return false
         
         var isInside = false
         var j = outerRing.size - 1
@@ -26,8 +25,8 @@ object RiskAnalytics {
             val pi = outerRing[i]
             val pj = outerRing[j]
             
-            if (((pi.latitude() > lat) != (pj.latitude() > lat)) &&
-                (lng < (pj.longitude() - pi.longitude()) * (lat - pi.latitude()) / (pj.latitude() - pi.latitude()) + pi.longitude())
+            if ((((pi.latitude() > lat) != (pj.latitude() > lat))) &&
+                (lng < ((pj.longitude() - pi.longitude()) * (lat - pi.latitude()) / (pj.latitude() - pi.latitude()) + pi.longitude()))
             ) {
                 isInside = !isInside
             }

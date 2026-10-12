@@ -4,7 +4,6 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
-import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
@@ -55,7 +54,7 @@ class LocationService : Service() {
                 if (unitId != null) {
                     try {
                         startForeground(NOTIFICATION_ID, createNotification(assignmentTitle))
-                    } catch (se: SecurityException) {
+                    } catch (_: SecurityException) {
                         // FOREGROUND_SERVICE_LOCATION permission absent (or FGS
                         // start restriction hit). Degrade gracefully instead of crashing.
                         stopSelf()
@@ -105,7 +104,7 @@ class LocationService : Service() {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "Location Tracking",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_LOW,
             ).apply {
                 description = "Used for tracking responder location during active assignments"
             }

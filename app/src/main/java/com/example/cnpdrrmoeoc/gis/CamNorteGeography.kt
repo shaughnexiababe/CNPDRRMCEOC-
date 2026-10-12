@@ -14,26 +14,26 @@ object CamNorteGeography {
         val barangayCount: Int,
         val isCoastal: Boolean,
         val floodRisk: String, // "low", "medium", "high", "very_high"
-        val landslideRisk: String
+        val landslideRisk: String,
     )
 
     val MUNICIPALITIES = listOf(
-        MunicipalityInfo("Basud", "122.9,13.9,123.1,14.1", 45133, 29, true, "medium", "high"),
-        MunicipalityInfo("Capalonga", "122.3,14.1,122.6,14.4", 36223, 22, true, "medium", "high"),
-        MunicipalityInfo("Daet", "122.9,14.0,123.0,14.2", 111700, 25, true, "very_high", "low"),
-        MunicipalityInfo("Jose Panganiban", "122.6,14.2,122.8,14.4", 63662, 27, true, "medium", "high"),
-        MunicipalityInfo("Labo", "122.6,14.0,122.9,14.2", 109245, 52, false, "high", "very_high"),
-        MunicipalityInfo("Mercedes", "123.0,13.9,123.2,14.1", 55334, 26, true, "high", "medium"),
-        MunicipalityInfo("Paracale", "122.7,14.2,122.9,14.4", 60198, 27, true, "medium", "high"),
-        MunicipalityInfo("San Lorenzo Ruiz", "122.8,13.9,123.0,14.1", 15757, 12, false, "medium", "very_high"),
-        MunicipalityInfo("San Vicente", "122.9,14.1,123.0,14.2", 12579, 9, false, "medium", "high"),
-        MunicipalityInfo("Santa Elena", "122.3,14.0,122.6,14.2", 43582, 19, true, "high", "medium"),
-        MunicipalityInfo("Talisay", "122.9,14.1,123.0,14.2", 27244, 15, true, "high", "low"),
-        MunicipalityInfo("Vinzons", "122.8,14.1,123.0,14.3", 49042, 19, true, "high", "medium")
+        MunicipalityInfo("Basud", "122.9,13.9,123.1,14.1", 45133, 29, isCoastal = true, "medium", "high"),
+        MunicipalityInfo("Capalonga", "122.3,14.1,122.6,14.4", 36223, 22, isCoastal = true, "medium", "high"),
+        MunicipalityInfo("Daet", "122.9,14.0,123.0,14.2", 111700, 25, isCoastal = true, "very_high", "low"),
+        MunicipalityInfo("Jose Panganiban", "122.6,14.2,122.8,14.4", 63662, 27, isCoastal = true, "medium", "high"),
+        MunicipalityInfo("Labo", "122.6,14.0,122.9,14.2", 109245, 52, isCoastal = false, "high", "very_high"),
+        MunicipalityInfo("Mercedes", "123.0,13.9,123.2,14.1", 55334, 26, isCoastal = true, "high", "medium"),
+        MunicipalityInfo("Paracale", "122.7,14.2,122.9,14.4", 60198, 27, isCoastal = true, "medium", "high"),
+        MunicipalityInfo("San Lorenzo Ruiz", "122.8,13.9,123.0,14.1", 15757, 12, isCoastal = false, "medium", "very_high"),
+        MunicipalityInfo("San Vicente", "122.9,14.1,123.0,14.2", 12579, 9, isCoastal = false, "medium", "high"),
+        MunicipalityInfo("Santa Elena", "122.3,14.0,122.6,14.2", 43582, 19, isCoastal = true, "high", "medium"),
+        MunicipalityInfo("Talisay", "122.9,14.1,123.0,14.2", 27244, 15, isCoastal = true, "high", "low"),
+        MunicipalityInfo("Vinzons", "122.8,14.1,123.0,14.3", 49042, 19, isCoastal = true, "high", "medium")
     )
 
     // Legacy Map access for existing code compatibility
-    val MUNICIPALITY_BBOXES = MUNICIPALITIES.associate { it.name to it.bbox }
+    val MUNICIPALITY_BBOXES = MUNICIPALITIES.associateBy({ it.name }, { it.bbox })
     
     val BARANGAYS = mapOf(
         "Basud" to listOf("Angas", "Bactas", "Binatagan", "Caayunan", "Guinatungan", "Hinampacan", "Langa", "Laniton", "Lidong", "Mampili", "Mandazo", "Mangcamagong", "Manmuntay", "Mantugawe", "Matnog", "Mocong", "Oliva", "Pagsangahan", "Pinagwarasan", "Plaridel", "Poblacion 1", "Poblacion 2", "San Felipe", "San Jose", "San Pascual", "Taba-taba", "Tacad", "Taisan", "Tuaca"),

@@ -18,6 +18,11 @@ import BarangayAssessments from '@/pages/BarangayAssessments';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import UserManagement from '@/pages/UserManagement';
+import SituationalReports from '@/pages/reports/SituationalReports';
+import OperationDetail from '@/pages/reports/OperationDetail';
+import ReportEntry from '@/pages/reports/ReportEntry';
+import ConsolidatedReport from '@/pages/reports/ConsolidatedReport';
+import ReportPrint from '@/pages/reports/ReportPrint';
 
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { Navigate } from 'react-router-dom';
@@ -47,6 +52,20 @@ const AuthenticatedApp = () => {
           <Route path="/map" element={<GISMapPage />} />
           <Route path="/alerts" element={<HazardAlerts />} />
           <Route path="/incidents" element={<FieldReports />} />
+        </Route>
+
+        {/* NDRRMC situational reporting: EOC staff + municipal DRRM officers (MDRRMOs).
+            Access to a municipality's data is enforced by Firestore rules, not just here. */}
+        <Route element={<ProtectedRoute roles={['admin', 'eoc_personnel', 'mdrrmo']} unauthenticatedElement={<Navigate to="/login" />} />}>
+          <Route element={<AppLayout />}>
+            <Route path="/reports" element={<SituationalReports />} />
+            <Route path="/reports/:opId" element={<OperationDetail />} />
+            <Route path="/reports/:opId/consolidated" element={<ConsolidatedReport />} />
+            <Route path="/reports/:opId/:muniSlug/:reportNo" element={<ReportEntry />} />
+          </Route>
+          {/* Print / Save-as-PDF views render without the app chrome */}
+          <Route path="/reports/:opId/print/consolidated" element={<ReportPrint />} />
+          <Route path="/reports/:opId/print/:muniSlug/:reportNo" element={<ReportPrint />} />
         </Route>
 
         {/* EOC staff & admin only */}

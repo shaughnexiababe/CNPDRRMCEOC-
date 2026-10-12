@@ -14,12 +14,13 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class GisViewModel @Inject constructor(
     private val repository: GisRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
 ) : ViewModel() {
 
     val currentUser: StateFlow<User?> = authRepository.currentUser
@@ -80,7 +81,7 @@ class GisViewModel @Inject constructor(
     // Real-time Units (EOC/Admin only)
     val units: StateFlow<List<Unit>> = currentUser
         .flatMapLatest { user ->
-            if (user?.role != "citizen" && user != null) repository.getUnits()
+            if ((user?.role != "citizen") && (user != null)) repository.getUnits()
             else flowOf(emptyList())
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -111,7 +112,7 @@ class GisViewModel @Inject constructor(
 
     val trackingStatus: StateFlow<TrackingInfo?> = combine(myUnit, myAssignment) { unit, assignment ->
         if (unit != null && assignment != null && assignment.status in listOf("assigned", "enroute", "on_scene")) {
-            TrackingInfo(unitId = unit.id, assignmentTitle = assignment.notes ?: "Active Duty")
+            TrackingInfo(unitId = unit.id, assignmentTitle = assignment.notes.ifBlank { "Active Duty" })
         } else {
             null
         }
@@ -156,14 +157,14 @@ class GisViewModel @Inject constructor(
     private val _submissionStatus = MutableSharedFlow<Boolean>()
     val submissionStatus = _submissionStatus.asSharedFlow()
 
-    private val _isAnalyzing = MutableStateFlow(false)
+    private val _isAnalyzing = MutableStateFlow(value = false)
     val isAnalyzing = _isAnalyzing.asStateFlow()
 
     data class AnalyticsResult(
         val totalPopulation: Int,
         val totalExposedHH: Int,
         val infrastructureAtRisk: Int,
-        val muniBreakdown: List<MuniExposure>
+        val muniBreakdown: List<MuniExposure>,
     )
 
     data class MuniExposure(val name: String, val exposedHH: Int, val percentage: Float)
@@ -171,7 +172,7 @@ class GisViewModel @Inject constructor(
     fun runProvincialAnalysis() {
         _isAnalyzing.value = true
         viewModelScope.launch {
-            kotlinx.coroutines.delay(1500)
+            kotlinx.coroutines.delay(1500.milliseconds)
             
             val municipalities = CamNorteGeography.MUNICIPALITIES
             var totalPop = 0

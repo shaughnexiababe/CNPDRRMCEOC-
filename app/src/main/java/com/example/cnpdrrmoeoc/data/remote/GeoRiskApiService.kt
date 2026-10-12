@@ -2,7 +2,6 @@ package com.example.cnpdrrmoeoc.data.remote
 
 import okhttp3.ResponseBody
 import retrofit2.http.GET
-import retrofit2.http.Path
 import retrofit2.http.Query
 
 /**
@@ -21,7 +20,7 @@ interface GeoRiskApiService {
         @Query("outFields") fields: String = "*",
         @Query("f") format: String = "geojson",
         @Query("geometry") bbox: String? = null,
-        @Query("geometryType") geometryType: String = "esriGeometryEnvelope"
+        @Query("geometryType") geometryType: String = "esriGeometryEnvelope",
     ): ResponseBody
 
     /**
@@ -33,6 +32,6 @@ interface GeoRiskApiService {
         @Query("outFields") fields: String = "*",
         @Query("f") format: String = "geojson",
         @Query("geometry") bbox: String? = null,
-        @Query("geometryType") geometryType: String = "esriGeometryEnvelope"
+        @Query("geometryType") geometryType: String = "esriGeometryEnvelope",
     ): ResponseBody
 }

@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,7 +17,7 @@ import com.example.cnpdrrmoeoc.data.User
 fun UserManagementView(viewModel: GisViewModel) {
     val currentUser by viewModel.currentUser.collectAsState()
     val users by viewModel.allUsers.collectAsState()
-    var isLoading by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(value = false) }
     
     var selectedUserForRole by remember { mutableStateOf<User?>(null) }
 
@@ -45,8 +44,7 @@ fun UserManagementView(viewModel: GisViewModel) {
                     UserItem(
                         user = user,
                         isSelf = user.id == currentUser?.id,
-                        onEditRole = { selectedUserForRole = user }
-                    )
+                    ) { selectedUserForRole = user }
                 }
             }
         }

@@ -7,5 +7,5 @@ data class ShiftNote(
     val author_id: String = "",
     val author_name: String = "",
     val content: String = "",
-    val created_at: Timestamp? = null
+    val created_at: Timestamp? = null,
 )
