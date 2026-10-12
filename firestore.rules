@@ -9,14 +9,16 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function userProfile() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    function hasUserDoc() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
     function role() {
-      return (isSignedIn() && userProfile().exists && userProfile().data.role is string)
-        ? userProfile().data.role
-        : 'citizen';
+      return hasUserDoc() ? getUserData().get('role', 'citizen') : 'citizen';
     }
 
     function isStaff() {
@@ -30,14 +32,12 @@ service cloud.firestore {
       return isSignedIn() && (role() == 'admin' || role() == 'ADMIN');
     }
 
-    // NEW: municipal DRRM officer (one of the 12 MDRRMOs). Scoped to ONE municipality.
     function isMdrrmo() {
       return isSignedIn() && (role() == 'mdrrmo' || role() == 'MDRRMO');
     }
 
-    // NEW: the municipality an MDRRMO account is assigned to ('' when unset).
     function myMuni() {
-      return userProfile().data.get('municipality', '');
+      return hasUserDoc() ? getUserData().get('municipality', '') : '';
     }
 
     // ---------- users ----------
@@ -154,8 +154,9 @@ service cloud.firestore {
     // municipality's reports; EOC staff see everything and can enter data on
     // behalf of a municipality that has lost connectivity.
     match /operations/{opId} {
-      allow read: if isStaff() || isMdrrmo();
-      allow create, update: if isStaff();
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && (isStaff() || request.resource.data.created_by == request.auth.uid);
+      allow update: if isStaff();
       allow delete: if isAdmin();
 
       match /reports/{reportId} {
