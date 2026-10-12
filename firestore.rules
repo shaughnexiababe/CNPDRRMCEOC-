@@ -1,7 +1,6 @@
 rules_version = '2';
 
 service cloud.firestore {
-
   match /databases/{database}/documents {
 
     // ---------- helpers ----------
@@ -44,16 +43,9 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isStaff());
 
-      // Public self-registration is citizen-only. Staff roles are assigned
-      // by admins (console) or the invite-staff API route.
       allow create: if isSignedIn() && request.auth.uid == userId
                     && request.resource.data.role == 'citizen';
 
-      // Admins may change roles; a user may update their own profile but
-      // can never change their own role (privilege escalation guard).
-      // CHANGED: non-citizen accounts (e.g. MDRRMO) also cannot change their own
-      // assigned municipality, otherwise an MDRRMO could re-point themselves at
-      // another municipality's reports.
       allow update: if isAdmin()
                     || (isSignedIn() && request.auth.uid == userId
                         && request.resource.data.role == resource.data.role
@@ -72,8 +64,6 @@ service cloud.firestore {
                     && request.resource.data.status == 'reported'
                     && request.resource.data.keys().hasAny(['reporter_contact','reporter_name','reported_by_name','latitude','longitude','location','photo_urls']) == false;
 
-      // Staff workflow (verify/dispatch/responding/resolved); a reporter may
-      // edit title/description only while unverified.
       allow update: if isStaff()
                     || (isSignedIn()
                         && resource.data.reported_by_id == request.auth.uid
@@ -106,7 +96,6 @@ service cloud.firestore {
     match /units/{unitId} {
       allow read: if isStaff();
 
-      // Dispatchers (staff) manage units; a crew lead may push GPS fixes.
       allow write: if isStaff();
       allow update: if isSignedIn() && resource.data.crew_lead_user_id == request.auth.uid
                     && request.resource.data.diff(resource.data).affectedKeys()
@@ -162,10 +151,6 @@ service cloud.firestore {
     }
 
     // ---------- NDRRMC situational reporting (MC 05, s. 2025) ----------
-    // An "operation" is one event (e.g. a typhoon). Each municipality files one
-    // report per reporting cycle under it. MDRRMOs can only see/write THEIR OWN
-    // municipality's reports; EOC staff see everything and can enter data on
-    // behalf of a municipality that has lost connectivity.
     match /operations/{opId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && (isStaff() || request.resource.data.created_by == request.auth.uid);
@@ -177,9 +162,6 @@ service cloud.firestore {
           return isMdrrmo() && resource.data.municipality == myMuni();
         }
 
-        // `resource == null` lets an MDRRMO ask "does my report exist yet?" without a
-        // permission error (a read of a missing doc exposes no data). Real documents
-        // and list queries are still restricted to the caller's own municipality.
         allow read: if isStaff()
                     || (isMdrrmo() && (resource == null || resource.data.municipality == myMuni()));
 
@@ -187,13 +169,9 @@ service cloud.firestore {
                       || (isMdrrmo()
                           && request.resource.data.municipality == myMuni()
                           && request.resource.data.status == 'draft'
-                          // only for cycles the EOC has opened
                           && request.resource.data.report_no <=
                              get(/databases/$(database)/documents/operations/$(opId)).data.current_report_no);
 
-        // MDRRMOs may edit only while the report is a draft or was returned for
-        // correction, and may only move it to draft/returned/submitted. Once
-        // submitted the report is LOCKED to them; staff reopen it via "return".
         allow update: if isStaff()
                       || (ownsReport()
                           && resource.data.status in ['draft', 'returned']
@@ -203,8 +181,6 @@ service cloud.firestore {
 
         allow delete: if isAdmin();
 
-        // Annex 3 personal data (names, ages, addresses of casualties).
-        // Never readable by citizens or by other municipalities.
         match /restricted/{docId} {
           function parent() {
             return get(/databases/$(database)/documents/operations/$(opId)/reports/$(reportId)).data;
