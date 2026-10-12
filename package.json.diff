@@ -1,0 +1,10 @@
+--- a/frontend/package.json
++++ b/frontend/package.json
+@@ -35,6 +35,7 @@
+     "clsx": "^2.1.1",
+     "date-fns": "^4.1.0",
+     "esri-leaflet": "^3.0.19",
++    "fflate": "^0.8.2",
+     "firebase": "^12.12.1",
+     "leaflet": "^1.9.4",
+     "lucide-react": "^0.454.0",

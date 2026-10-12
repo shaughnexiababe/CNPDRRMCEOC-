@@ -1,39 +1,62 @@
 rules_version = '2';
 
 service cloud.firestore {
+
   match /databases/{database}/documents {
 
     // ---------- helpers ----------
     function isSignedIn() {
       return request.auth != null;
     }
+
     function userProfile() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid));
     }
+
     function role() {
       return (isSignedIn() && userProfile().exists && userProfile().data.role is string)
         ? userProfile().data.role
         : 'citizen';
     }
+
     function isStaff() {
       return isSignedIn() && (role() == 'eoc_personnel' || role() == 'admin');
     }
+
     function isAdmin() {
       return isSignedIn() && role() == 'admin';
+    }
+
+    // NEW: municipal DRRM officer (one of the 12 MDRRMOs). Scoped to ONE municipality.
+    function isMdrrmo() {
+      return isSignedIn() && role() == 'mdrrmo';
+    }
+
+    // NEW: the municipality an MDRRMO account is assigned to ('' when unset).
+    function myMuni() {
+      return userProfile().data.get('municipality', '');
     }
 
     // ---------- users ----------
     match /users/{userId} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isStaff());
+
       // Public self-registration is citizen-only. Staff roles are assigned
-      // by admins (console) or the inviteStaff Cloud Function.
+      // by admins (console) or the invite-staff API route.
       allow create: if isSignedIn() && request.auth.uid == userId
-        && request.resource.data.role == 'citizen';
+                    && request.resource.data.role == 'citizen';
+
       // Admins may change roles; a user may update their own profile but
       // can never change their own role (privilege escalation guard).
+      // CHANGED: non-citizen accounts (e.g. MDRRMO) also cannot change their own
+      // assigned municipality, otherwise an MDRRMO could re-point themselves at
+      // another municipality's reports.
       allow update: if isAdmin()
-        || (isSignedIn() && request.auth.uid == userId
-            && request.resource.data.role == resource.data.role);
+                    || (isSignedIn() && request.auth.uid == userId
+                        && request.resource.data.role == resource.data.role
+                        && (resource.data.role == 'citizen'
+                            || request.resource.data.get('municipality', null) == resource.data.get('municipality', null)));
+
       allow delete: if isAdmin();
     }
 
@@ -41,15 +64,18 @@ service cloud.firestore {
     match /incidents/{incidentId} {
       // Any authenticated user may read the incident map/province feed.
       allow read: if isSignedIn();
+
       allow create: if isSignedIn()
-        && request.resource.data.reported_by_id == request.auth.uid
-        && request.resource.data.status == 'reported';
+                    && request.resource.data.reported_by_id == request.auth.uid
+                    && request.resource.data.status == 'reported';
+
       // Staff workflow (verify/dispatch/responding/resolved); a reporter may
       // still edit their own report while it is unverified.
       allow update: if isStaff()
-        || (isSignedIn()
-            && resource.data.reported_by_id == request.auth.uid
-            && resource.data.status == 'reported');
+                    || (isSignedIn()
+                        && resource.data.reported_by_id == request.auth.uid
+                        && resource.data.status == 'reported');
+
       allow delete: if isAdmin();
     }
 
@@ -63,17 +89,18 @@ service cloud.firestore {
     // ---------- response units ----------
     match /units/{unitId} {
       allow read: if isStaff();
+
       // Dispatchers (staff) manage units; a crew lead may push GPS fixes.
       allow write: if isStaff();
       allow update: if isSignedIn() && resource.data.crew_lead_user_id == request.auth.uid
-        && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['current_location', 'last_location_update', 'updated_at']);
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['current_location', 'last_location_update', 'updated_at']);
 
       match /location_history/{recordId} {
         allow read: if isStaff();
         allow create: if isStaff()
-          || (isSignedIn()
-              && get(/databases/$(database)/documents/units/$(unitId)).data.crew_lead_user_id == request.auth.uid);
+                      || (isSignedIn()
+                          && get(/databases/$(database)/documents/units/$(unitId)).data.crew_lead_user_id == request.auth.uid);
         allow update, delete: if false;
       }
     }
@@ -116,6 +143,65 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
       allow read: if isSignedIn() && (resource.data.user_id == request.auth.uid || isStaff());
       allow update, delete: if isAdmin();
+    }
+
+    // ---------- NDRRMC situational reporting (MC 05, s. 2025) ----------
+    // An "operation" is one event (e.g. a typhoon). Each municipality files one
+    // report per reporting cycle under it. MDRRMOs can only see/write THEIR OWN
+    // municipality's reports; EOC staff see everything and can enter data on
+    // behalf of a municipality that has lost connectivity.
+    match /operations/{opId} {
+      allow read: if isStaff() || isMdrrmo();
+      allow create, update: if isStaff();
+      allow delete: if isAdmin();
+
+      match /reports/{reportId} {
+        function ownsReport() {
+          return isMdrrmo() && resource.data.municipality == myMuni();
+        }
+
+        // `resource == null` lets an MDRRMO ask "does my report exist yet?" without a
+        // permission error (a read of a missing doc exposes no data). Real documents
+        // and list queries are still restricted to the caller's own municipality.
+        allow read: if isStaff()
+                    || (isMdrrmo() && (resource == null || resource.data.municipality == myMuni()));
+
+        allow create: if isStaff()
+                      || (isMdrrmo()
+                          && request.resource.data.municipality == myMuni()
+                          && request.resource.data.status == 'draft'
+                          // only for cycles the EOC has opened
+                          && request.resource.data.report_no <=
+                             get(/databases/$(database)/documents/operations/$(opId)).data.current_report_no);
+
+        // MDRRMOs may edit only while the report is a draft or was returned for
+        // correction, and may only move it to draft/returned/submitted. Once
+        // submitted the report is LOCKED to them; staff reopen it via "return".
+        allow update: if isStaff()
+                      || (ownsReport()
+                          && resource.data.status in ['draft', 'returned']
+                          && request.resource.data.municipality == resource.data.municipality
+                          && request.resource.data.report_no == resource.data.report_no
+                          && request.resource.data.status in ['draft', 'returned', 'submitted']);
+
+        allow delete: if isAdmin();
+
+        // Annex 3 personal data (names, ages, addresses of casualties).
+        // Never readable by citizens or by other municipalities.
+        match /restricted/{docId} {
+          function parent() {
+            return get(/databases/$(database)/documents/operations/$(opId)/reports/$(reportId)).data;
+          }
+
+          allow read: if isStaff()
+                      || (isMdrrmo() && parent().municipality == myMuni());
+
+          allow write: if isStaff()
+                       || (isMdrrmo()
+                           && parent().municipality == myMuni()
+                           && parent().status in ['draft', 'returned']);
+        }
+      }
     }
 
     // ---------- audit logs (Cloud Functions / Admin SDK only) ----------

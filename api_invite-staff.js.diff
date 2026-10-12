@@ -1,0 +1,56 @@
+--- a/frontend/api/invite-staff.js
++++ b/frontend/api/invite-staff.js
+@@ -2,6 +2,11 @@
+   getAdminAuth, getAdminDb, verifyRequester, corsHeaders, readJsonBody, sendError, FieldValue,
+ } from './_lib/firebase-admin.js';
+ 
++const MUNICIPALITIES = [
++  'Basud', 'Capalonga', 'Daet', 'Jose Panganiban', 'Labo', 'Mercedes',
++  'Paracale', 'San Lorenzo Ruiz', 'San Vicente', 'Santa Elena', 'Talisay', 'Vinzons',
++];
++
+ /**
+  * POST /api/invite-staff
+  * Port of the inviteStaff Cloud Function (free-route version).
+@@ -16,7 +21,7 @@
+   try {
+     const caller = await verifyRequester(req, { adminOnly: true });
+     const body = await readJsonBody(req);
+-    const { email, fullName, role } = body;
++    const { email, fullName, role, municipality } = body;
+ 
+     if (!email || !fullName || !role) {
+       return res.status(400).json({ error: 'Missing required fields' });
+@@ -24,9 +29,14 @@
+     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+       return res.status(400).json({ error: 'Invalid email address' });
+     }
+-    if (!['admin', 'eoc_personnel'].includes(role)) {
++    if (!['admin', 'eoc_personnel', 'mdrrmo'].includes(role)) {
+       return res.status(400).json({ error: 'Invalid staff role' });
+     }
++    // MDRRMO accounts are scoped to exactly one municipality (enforced by Firestore rules).
++    if (role === 'mdrrmo' && !MUNICIPALITIES.includes(municipality)) {
++      return res.status(400).json({ error: 'A valid municipality is required for MDRRMO accounts' });
++    }
++    const assignedMunicipality = role === 'mdrrmo' ? municipality : 'PROVINCIAL_EOC';
+ 
+     const userRecord = await getAdminAuth().createUser({
+       email,
+@@ -38,7 +48,7 @@
+       email,
+       full_name: fullName,
+       role,
+-      municipality: 'PROVINCIAL_EOC',
++      municipality: assignedMunicipality,
+       created_at: FieldValue.serverTimestamp(),
+     });
+ 
+@@ -51,6 +61,7 @@
+       target_uid: userRecord.uid,
+       target_email: email,
+       role,
++      municipality: assignedMunicipality,
+       performed_by: caller.uid,
+       timestamp: FieldValue.serverTimestamp(),
+     });

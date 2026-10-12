@@ -1,0 +1,39 @@
+--- a/frontend/src/components/Sidebar.jsx
++++ b/frontend/src/components/Sidebar.jsx
+@@ -3,7 +3,7 @@
+ import {
+   Map, LayoutDashboard, AlertTriangle, FileText,
+   Building2, Layers, ChevronLeft, ChevronRight,
+-  Activity, Radio, ClipboardList, Users as UsersIcon
++  Activity, Radio, ClipboardList, ClipboardCheck, Users as UsersIcon
+ } from 'lucide-react';
+ import { cn } from '@/lib/utils';
+ import { Button } from '@/components/ui/button';
+@@ -12,12 +12,13 @@
+ import { useAuth } from '@/lib/AuthContext';
+ 
+ const navItems = [
+-  { path: '/', icon: LayoutDashboard, label: 'Strategic Overview', roles: ['admin', 'eoc_personnel', 'citizen'] },
+-  { path: '/map', icon: Map, label: 'GIS Map', roles: ['admin', 'eoc_personnel', 'citizen'] },
++  { path: '/', icon: LayoutDashboard, label: 'Strategic Overview', roles: ['admin', 'eoc_personnel', 'mdrrmo', 'citizen'] },
++  { path: '/map', icon: Map, label: 'GIS Map', roles: ['admin', 'eoc_personnel', 'mdrrmo', 'citizen'] },
+   { path: '/operations', icon: Radio, label: 'Operations Center', roles: ['admin', 'eoc_personnel'] },
++  { path: '/reports', icon: ClipboardCheck, label: 'Situational Reports', roles: ['admin', 'eoc_personnel', 'mdrrmo'] },
+   { path: '/analytics', icon: Activity, label: 'Risk Analytics', roles: ['admin', 'eoc_personnel'] },
+-  { path: '/alerts', icon: AlertTriangle, label: 'Hazard Alerts', roles: ['admin', 'eoc_personnel', 'citizen'] },
+-  { path: '/incidents', icon: FileText, label: 'Field Reports', roles: ['admin', 'eoc_personnel', 'citizen'] },
++  { path: '/alerts', icon: AlertTriangle, label: 'Hazard Alerts', roles: ['admin', 'eoc_personnel', 'mdrrmo', 'citizen'] },
++  { path: '/incidents', icon: FileText, label: 'Field Reports', roles: ['admin', 'eoc_personnel', 'mdrrmo', 'citizen'] },
+   { path: '/facilities', icon: Building2, label: 'Facilities', roles: ['admin', 'eoc_personnel'] },
+   { path: '/layers', icon: Layers, label: 'Data Layers', roles: ['admin'] },
+   { path: '/assessments', icon: ClipboardList, label: 'Barangay Assessments', roles: ['admin', 'eoc_personnel'] },
+@@ -52,7 +53,8 @@
+         {/* Nav */}
+         <nav className="flex-1 py-3 px-2 space-y-1 overflow-y-auto">
+           {navItems.filter(item => item.roles.includes(userRole)).map((item) => {
+-            const isActive = location.pathname === item.path;
++            const isActive = location.pathname === item.path
++              || (item.path === '/reports' && location.pathname.startsWith('/reports'));
+             const Icon = item.icon;
+             const link = (
+               <Link
