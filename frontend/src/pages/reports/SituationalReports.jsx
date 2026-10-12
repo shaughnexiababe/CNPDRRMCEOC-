@@ -72,7 +72,7 @@ export default function SituationalReports() {
                   <div className="space-y-1.5">
                     <Label>Hazard Type</Label>
                     <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm" value={hazard} onChange={(e) => setHazard(e.target.value)}>
-                      {HAZARD_TYPES.map((h) => <option key={h} value={h}>{h.toUpperCase()}</option>)}
+                      {HAZARD_TYPES.map((h) => <option key={h.value} value={h.value}>{h.label.toUpperCase()}</option>)}
                     </select>
                   </div>
                   <div className="space-y-1.5">

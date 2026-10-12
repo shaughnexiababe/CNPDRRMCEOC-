@@ -58,7 +58,7 @@ export default function StrategicDashboard() {
       // Show pop-up notification
       toast({
         title: "NEW INCIDENT REPORTED",
-        description: `${newIncident.type.toUpperCase()}: ${newIncident.title} in ${newIncident.municipality}`,
+        description: `${(newIncident.type || '').toUpperCase()}: ${newIncident.title || ''} in ${newIncident.municipality || ''}`,
         variant: "destructive",
         duration: 10000, // Show for 10 seconds
       });

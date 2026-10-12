@@ -79,7 +79,7 @@ export default function OperationDetail() {
                 <StatusBadge status={op.status} />
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                Hazard: {op.hazard_type.toUpperCase()} · Started: {op.start_date || '—'}
+                Hazard: {(op.hazard_type || '').toUpperCase()} · Started: {op.start_date || '—'}
               </p>
             </div>
 
