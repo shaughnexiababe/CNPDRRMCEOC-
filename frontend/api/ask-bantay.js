@@ -1,4 +1,6 @@
-import { verifyRequester, corsHeaders, readJsonBody, sendError } from './_lib/firebase-admin.js';
+import {
+  getAdminDb, verifyRequester, corsHeaders, readJsonBody, sendError, FieldValue,
+} from './_lib/firebase-admin.js';
 
 const SYSTEM_INSTRUCTION = [
   'You are "Super Batang Kalasag", the AI wingman for the CN-PDRRMO EOC app.',
@@ -8,14 +10,16 @@ const SYSTEM_INSTRUCTION = [
   'If the user wants the map, include [NAVIGATE_MAP]; for alerts, include [NAVIGATE_ALERTS].',
 ].join(' ');
 
+function sanitizeText(str) {
+  return String(str || '').replace(/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/g, '').trim().slice(0, 2000);
+}
+
 /**
  * POST /api/ask-bantay { message, context }
- * Port of askBantayGateway — keeps the Gemini key server-side (Vercel env
- * GEMINI_API_KEY) so nothing needs to ship in the web bundle or APK.
- * Any signed-in user may call it.
+ * Server-side Gemini AI gateway with per-uid rate limiting.
  */
 export default async function handler(req, res) {
-  corsHeaders(res);
+  corsHeaders(res, req);
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -25,19 +29,46 @@ export default async function handler(req, res) {
   }
 
   try {
-    await verifyRequester(req);
+    const requester = await verifyRequester(req);
     const body = await readJsonBody(req);
-    const userText = String(body.message || '').slice(0, 2000);
-    const contextText = String(body.context || '').slice(0, 2000);
-    if (!userText.trim()) return res.status(400).json({ error: 'Empty message' });
+    const userText = sanitizeText(body.message);
+    const contextText = sanitizeText(body.context);
+    if (!userText) return res.status(400).json({ error: 'Empty message' });
 
+    // Per-uid rate limiting via Firestore transaction
+    const maxPerHour = Number(process.env.AI_RATE_PER_HOUR) || 20;
+    const dateHour = new Date().toISOString().slice(0, 13).replace(/[-T]/g, ''); // YYYYMMDDHH
+    const rateLimitRef = getAdminDb().collection('rate_limits').doc(`${requester.uid}_${dateHour}`);
+
+    await getAdminDb().runTransaction(async (transaction) => {
+      const snap = await transaction.get(rateLimitRef);
+      const count = snap.exists ? snap.data().count || 0 : 0;
+      if (count >= maxPerHour) {
+        const err = new Error(`Rate limit exceeded (${maxPerHour} AI requests per hour limit). Please try again later.`);
+        err.status = 429;
+        throw err;
+      }
+      transaction.set(rateLimitRef, {
+        count: count + 1,
+        uid: requester.uid,
+        updated_at: FieldValue.serverTimestamp(),
+      }, { merge: true });
+    });
+
+    const modelId = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
     const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: `${SYSTEM_INSTRUCTION}\nContext: ${contextText}\nUser: ${userText}` }] }],
+          systemInstruction: {
+            parts: [{ text: SYSTEM_INSTRUCTION }],
+          },
+          contents: [{
+            parts: [{ text: `Context: ${contextText}\nUser: ${userText}` }],
+          }],
+          generationConfig: { temperature: 0.3 },
         }),
         signal: AbortSignal.timeout(20000),
       }
@@ -47,6 +78,7 @@ export default async function handler(req, res) {
       console.error('Gemini error', resp.status, await resp.text().catch(() => ''));
       return res.status(502).json({ error: 'AI service temporarily unavailable' });
     }
+
     const data = await resp.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
       || 'Pasensya na, may problema sa pagsagot ko ngayon.';

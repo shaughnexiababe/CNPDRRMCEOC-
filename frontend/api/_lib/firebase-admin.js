@@ -5,11 +5,6 @@ import { getMessaging } from 'firebase-admin/messaging';
 
 /**
  * Shared Firebase Admin singleton for the Vercel API routes.
- *
- * Required env var (Vercel → Project Settings → Environment Variables):
- *   FIREBASE_SERVICE_ACCOUNT_JSON — the full service-account key JSON,
- *   pasted as a ONE-LINE string. Generate it at:
- *   Firebase Console → Project Settings → Service accounts → Generate new private key.
  */
 let _app = null;
 
@@ -32,11 +27,11 @@ export function getAdminMessaging() { return getMessaging(getAdminApp()); }
 export { FieldValue, Timestamp };
 
 /**
- * Verifies the Firebase ID token from the Authorization: Bearer header.
+ * Verifies the Firebase ID token from the Authorization: Bearer header with checkRevoked = true.
  * Returns { uid, role, email }. Throws Error with .status on failure.
  */
 export async function verifyRequester(req, { staffOnly = false, adminOnly = false } = {}) {
-  const header = req.headers.authorization || '';
+  const header = req.headers.authorization || req.headers.Authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) {
     const err = new Error('Missing ID token');
@@ -45,48 +40,70 @@ export async function verifyRequester(req, { staffOnly = false, adminOnly = fals
   }
   let decoded;
   try {
-    decoded = await getAdminAuth().verifyIdToken(token);
+    decoded = await getAdminAuth().verifyIdToken(token, true);
   } catch (e) {
-    const err = new Error('Invalid ID token');
+    const err = new Error('Invalid or revoked ID token');
     err.status = 401;
     throw err;
   }
 
   const userSnap = await getAdminDb().collection('users').doc(decoded.uid).get();
   const role = userSnap.exists && userSnap.data().role ? userSnap.data().role : 'citizen';
-  const isStaff = role === 'eoc_personnel' || role === 'admin';
+  const isStaff = role === 'eoc_personnel' || role === 'admin' || role === 'EOC_PERSONNEL' || role === 'ADMIN';
 
-  if (adminOnly && role !== 'admin') {
-    const err = new Error('Admin only');
+  if (adminOnly && role !== 'admin' && role !== 'ADMIN') {
+    const err = new Error('Admin access required');
     err.status = 403;
     throw err;
   }
   if (staffOnly && !isStaff) {
-    const err = new Error('Staff only');
+    const err = new Error('Staff access required');
     err.status = 403;
     throw err;
   }
   return { uid: decoded.uid, email: decoded.email || '', role };
 }
 
-/** Minimal CORS/CORB friendliness for cross-origin callers (Android app). */
-export function corsHeaders(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+/** Configurable CORS headers based on ALLOWED_ORIGINS environment variable. */
+export function corsHeaders(res, req = null) {
+  const allowed = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean)
+    : [];
+
+  const origin = req?.headers?.origin;
+  if (allowed.length > 0 && origin && allowed.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else if (allowed.length > 0) {
+    res.setHeader('Access-Control-Allow-Origin', allowed[0]);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
 export async function readJsonBody(req) {
-  if (req.body && typeof req.body === 'object') return req.body;
-  if (typeof req.body === 'string') return JSON.parse(req.body);
-  const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
-  const raw = Buffer.concat(chunks).toString('utf8');
-  return raw ? JSON.parse(raw) : {};
+  try {
+    if (req.body && typeof req.body === 'object') return req.body;
+    if (typeof req.body === 'string') return JSON.parse(req.body);
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const raw = Buffer.concat(chunks).toString('utf8');
+    return raw ? JSON.parse(raw) : {};
+  } catch (parseErr) {
+    const err = new Error('Invalid JSON payload');
+    err.status = 400;
+    throw err;
+  }
 }
 
 export function sendError(res, err) {
-  console.error(err);
-  const status = err.status || 500;
-  res.status(status).json({ error: err.message || 'Internal error' });
+  console.error('[API Error]:', err);
+  const status = err?.status && Number.isInteger(err.status) ? err.status : 500;
+  if (status >= 500) {
+    res.status(status).json({ error: 'Internal error' });
+  } else {
+    res.status(status).json({ error: err.message || 'Bad request' });
+  }
 }

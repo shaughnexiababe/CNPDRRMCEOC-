@@ -4,25 +4,23 @@ import {
 
 /**
  * GET /api/cron-expire-alerts
- * Port of the expireHazardAlerts scheduler. Invoked daily by Vercel Cron
- * (see vercel.json). If CRON_SECRET is set, Vercel automatically sends it
- * as `Authorization: Bearer <CRON_SECRET>` on cron runs; manual triggers
- * must present the same secret. Hourly expiry also happens client-side —
- * this sweep is the durable cleanup.
+ * Invoked by Vercel Cron. Fails CLOSED if CRON_SECRET is not configured.
  */
 export default async function handler(req, res) {
-  corsHeaders(res);
+  corsHeaders(res, req);
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const header = req.headers.authorization || '';
-    if (header !== `Bearer ${secret}`) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+  if (!secret) {
+    return res.status(503).json({ error: 'Cron secret not configured' });
+  }
+
+  const header = req.headers.authorization || req.headers.Authorization || '';
+  if (header !== `Bearer ${secret}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {

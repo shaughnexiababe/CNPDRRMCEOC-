@@ -1,26 +1,27 @@
+import crypto from 'crypto';
 import {
   getAdminAuth, getAdminDb, verifyRequester, corsHeaders, readJsonBody, sendError, FieldValue,
 } from './_lib/firebase-admin.js';
 
 /**
  * POST /api/invite-staff
- * Port of the inviteStaff Cloud Function (free-route version).
- * Admins only. Creates an Auth user + Firestore profile, returns a
- * password-reset link to share with the invitee.
+ * Admins only. Creates Auth user + Firestore profile, writes audit log, returns password reset link.
  */
 export default async function handler(req, res) {
-  corsHeaders(res);
+  corsHeaders(res, req);
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
     const caller = await verifyRequester(req, { adminOnly: true });
     const body = await readJsonBody(req);
-    const { email, fullName, role, municipality } = body;
+    const { email: rawEmail, fullName, role, municipality } = body;
 
-    if (!email || !fullName || !role) {
+    if (!rawEmail || !fullName || !role) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
+
+    const email = String(rawEmail).trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ error: 'Invalid email address' });
     }
@@ -32,23 +33,40 @@ export default async function handler(req, res) {
     }
 
     const assignedMunicipality = role === 'mdrrmo' ? municipality : 'PROVINCIAL_EOC';
+    const tempPassword = crypto.randomBytes(16).toString('hex') + 'A1!';
 
-    const userRecord = await getAdminAuth().createUser({
-      email,
-      displayName: fullName,
-      password: Math.random().toString(36).slice(-10) + 'A1!',
-    });
+    let userRecord;
+    try {
+      userRecord = await getAdminAuth().createUser({
+        email,
+        displayName: fullName.trim(),
+        password: tempPassword,
+      });
+    } catch (authErr) {
+      if (authErr.code === 'auth/email-already-exists') {
+        return res.status(409).json({ error: 'Email address already registered' });
+      }
+      console.error('Auth createUser error:', authErr);
+      return res.status(400).json({ error: 'Failed to create user account' });
+    }
 
-    await getAdminDb().collection('users').doc(userRecord.uid).set({
-      email,
-      full_name: fullName,
-      role,
-      municipality: assignedMunicipality,
-      created_at: FieldValue.serverTimestamp(),
-    });
+    try {
+      await getAdminDb().collection('users').doc(userRecord.uid).set({
+        email,
+        full_name: fullName.trim(),
+        role,
+        municipality: assignedMunicipality,
+        created_at: FieldValue.serverTimestamp(),
+      });
+    } catch (dbErr) {
+      console.error('Firestore user set error, rolling back Auth user:', dbErr);
+      try { await getAdminAuth().deleteUser(userRecord.uid); } catch (_) { /* best effort */ }
+      return res.status(500).json({ error: 'Failed to initialize user profile' });
+    }
 
+    const appUrl = process.env.APP_URL || 'https://cnpdrrmceoc.vercel.app';
     const link = await getAdminAuth().generatePasswordResetLink(email, {
-      url: 'https://cnpdrrmceoc.vercel.app/login',
+      url: `${appUrl}/login`,
     });
 
     await getAdminDb().collection('audit_logs').add({
@@ -56,6 +74,7 @@ export default async function handler(req, res) {
       target_uid: userRecord.uid,
       target_email: email,
       role,
+      municipality: assignedMunicipality,
       performed_by: caller.uid,
       timestamp: FieldValue.serverTimestamp(),
     });
