@@ -70,7 +70,7 @@ const ToastClose = React.forwardRef(({ className, ...props }, ref) => (
     toast-close=""
     {...props}
   >
-    < Х className="h-4 w-4" />
+    <X className="h-4 w-4" />
   </button>
 ));
 ToastClose.displayName = "ToastClose";
