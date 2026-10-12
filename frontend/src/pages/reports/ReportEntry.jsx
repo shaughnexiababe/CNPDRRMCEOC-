@@ -66,12 +66,12 @@ export default function ReportEntry() {
     return false;
   }, [report, isStaff, isMdrrmo, myMunicipality, municipality]);
 
-  const issues = useMemo(() => {
-    const full = { ...annexes, 3: casualties };
-    return validateReport(full, na);
+  const validationResult = useMemo(() => {
+    return validateReport(annexes, na, { casualties });
   }, [annexes, casualties, na]);
 
-  const hasErrors = issues.some((i) => i.severity === 'error');
+  const issues = validationResult.issues || [];
+  const hasErrors = validationResult.errors > 0;
 
   const saveMutation = useMutation({
     mutationFn: async () => {
