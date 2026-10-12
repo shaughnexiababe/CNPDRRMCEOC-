@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
-const L = '/home/claude/out/frontend/src/lib/reporting/';
+const L = './frontend/';
 const A = await import(L + 'annexes.js');
 const V = await import(L + 'validation.js');
 const C = await import(L + 'consolidate.js');
