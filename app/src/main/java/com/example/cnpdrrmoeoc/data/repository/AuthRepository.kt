@@ -59,6 +59,7 @@ class AuthRepository @Inject constructor(
 
             subscribeToAlerts(user.municipality)
             subscribeStaffTopics(user.role)
+            registerDeviceToken(user.id)
             userSession.saveUser(user)
             _currentUser.value = user
             Result.success(user)
@@ -92,6 +93,7 @@ class AuthRepository @Inject constructor(
             
             subscribeToAlerts(municipality)
             subscribeStaffTopics(newUser.role)
+            registerDeviceToken(newUser.id)
             userSession.saveUser(newUser)
             _currentUser.value = newUser
             Result.success(newUser)
@@ -106,6 +108,26 @@ class AuthRepository @Inject constructor(
         val topic = "alerts_$topicSlug"
         messaging.subscribeToTopic(topic)
         messaging.subscribeToTopic("alerts_province") // Always subscribed to provincial alerts
+    }
+
+    suspend fun registerDeviceToken(uid: String) {
+        try {
+            val token = messaging.token.await()
+            if (token.isNotBlank()) {
+                val tokenData = hashMapOf(
+                    "platform" to "android",
+                    "updated_at" to com.google.firebase.Timestamp.now()
+                )
+                firestore.collection("users")
+                    .document(uid)
+                    .collection("devices")
+                    .document(token)
+                    .set(tokenData)
+                    .await()
+            }
+        } catch (_: Exception) {
+            // Best effort device token registration
+        }
     }
 
     private fun unsubscribeFromAlerts(municipality: String) {
