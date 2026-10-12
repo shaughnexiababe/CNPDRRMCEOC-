@@ -20,16 +20,19 @@ service cloud.firestore {
     }
 
     function isStaff() {
-      return isSignedIn() && (role() == 'eoc_personnel' || role() == 'admin');
+      return isSignedIn() && (
+        role() == 'eoc_personnel' || role() == 'admin' ||
+        role() == 'EOC_PERSONNEL' || role() == 'ADMIN'
+      );
     }
 
     function isAdmin() {
-      return isSignedIn() && role() == 'admin';
+      return isSignedIn() && (role() == 'admin' || role() == 'ADMIN');
     }
 
     // NEW: municipal DRRM officer (one of the 12 MDRRMOs). Scoped to ONE municipality.
     function isMdrrmo() {
-      return isSignedIn() && role() == 'mdrrmo';
+      return isSignedIn() && (role() == 'mdrrmo' || role() == 'MDRRMO');
     }
 
     // NEW: the municipality an MDRRMO account is assigned to ('' when unset).
