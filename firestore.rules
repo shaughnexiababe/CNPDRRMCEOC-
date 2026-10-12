@@ -63,23 +63,36 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // ---------- incidents ----------
+    // ---------- incidents (Public-safe) ----------
     match /incidents/{incidentId} {
-      // Any authenticated user may read the incident map/province feed.
       allow read: if isSignedIn();
 
       allow create: if isSignedIn()
                     && request.resource.data.reported_by_id == request.auth.uid
-                    && request.resource.data.status == 'reported';
+                    && request.resource.data.status == 'reported'
+                    && request.resource.data.keys().hasAny(['reporter_contact','reporter_name','reported_by_name','latitude','longitude','location','photo_urls']) == false;
 
       // Staff workflow (verify/dispatch/responding/resolved); a reporter may
-      // still edit their own report while it is unverified.
+      // edit title/description only while unverified.
       allow update: if isStaff()
                     || (isSignedIn()
                         && resource.data.reported_by_id == request.auth.uid
-                        && resource.data.status == 'reported');
+                        && resource.data.status == 'reported'
+                        && request.resource.data.status == 'reported'
+                        && request.resource.data.get('priority', null) == resource.data.get('priority', null)
+                        && request.resource.data.reported_by_id == resource.data.reported_by_id
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','description','updated_at']));
 
       allow delete: if isAdmin();
+    }
+
+    // ---------- incidents_private (PII Locked) ----------
+    match /incidents_private/{incidentId} {
+      allow read: if isStaff() || (isSignedIn() && resource.data.reported_by_id == request.auth.uid);
+      allow create: if isSignedIn()
+                    && request.resource.data.reported_by_id == request.auth.uid
+                    && getAfter(/databases/$(database)/documents/incidents/$(incidentId)).data.reported_by_id == request.auth.uid;
+      allow update, delete: if isStaff();
     }
 
     // ---------- hazard alerts ----------

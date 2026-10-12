@@ -130,15 +130,11 @@ fun IncidentOpsItem(
             Spacer(modifier = Modifier.height(8.dp))
             Text(incident.status.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
 
-            // Inline base64 photo attachments (free-route storage)
-            if (incident.photo_urls.isNotEmpty()) {
+            // Photo indicator
+            if (incident.photo_count > 0) {
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    incident.photo_urls.take(4).forEach { url ->
-                        if (url.startsWith("data:")) {
-                            Base64Photo(url, size = 64.dp)
-                        }
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("${incident.photo_count} photo(s) attached", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                 }
             }
             

@@ -146,12 +146,80 @@ export const createClient = ({ firebaseConfig } = {}) => {
           return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null;
         },
         create: async (data) => {
+          if (entityName === 'Incident' || entityName === 'IncidentReport') {
+            const newDocRef = doc(colRef);
+            const incidentId = newDocRef.id;
+            const privateDocRef = doc(db, 'incidents_private', incidentId);
+
+            const {
+              reporter_name = '',
+              reporter_contact = '',
+              reported_by_name = '',
+              latitude = null,
+              longitude = null,
+              location = null,
+              photo_urls = [],
+              photos = [],
+              ...publicData
+            } = data;
+
+            const latNum = latitude != null ? Number(latitude) : null;
+            const lngNum = longitude != null ? Number(longitude) : null;
+            const approxLat = latNum != null && !isNaN(latNum) ? Math.round(latNum * 100) / 100 : null;
+            const approxLng = lngNum != null && !isNaN(lngNum) ? Math.round(lngNum * 100) / 100 : null;
+            const allPhotos = (Array.isArray(photo_urls) && photo_urls.length > 0 ? photo_urls : photos).slice(0, 2);
+
+            const batch = writeBatch(db);
+
+            const publicDocData = {
+              title: publicData.title || '',
+              type: publicData.type || 'other',
+              priority: publicData.priority || 'medium',
+              status: publicData.status || 'reported',
+              municipality: publicData.municipality || '',
+              barangay: publicData.barangay || '',
+              description: publicData.description || '',
+              approx_latitude: approxLat,
+              approx_longitude: approxLng,
+              photo_count: allPhotos.length,
+              reported_by_id: publicData.reported_by_id || auth?.currentUser?.uid || '',
+              schema_version: 2,
+              created_at: serverTimestamp(),
+              updated_at: serverTimestamp()
+            };
+
+            const privateDocData = {
+              reporter_name: reporter_name || reported_by_name || '',
+              reporter_contact: reporter_contact || '',
+              reported_by_name: reported_by_name || reporter_name || '',
+              latitude: latNum,
+              longitude: lngNum,
+              location: location || (latNum != null && lngNum != null ? new GeoPoint(latNum, lngNum) : null),
+              photo_urls: allPhotos,
+              reported_by_id: publicData.reported_by_id || auth?.currentUser?.uid || '',
+              schema_version: 2,
+              created_at: serverTimestamp(),
+              updated_at: serverTimestamp()
+            };
+
+            batch.set(newDocRef, publicDocData);
+            batch.set(privateDocRef, privateDocData);
+            await batch.commit();
+
+            return { id: incidentId, ...publicDocData, ...privateDocData };
+          }
+
           const docRef = await addDoc(colRef, {
             ...data,
             created_at: serverTimestamp(),
             updated_at: serverTimestamp()
           });
           return { id: docRef.id, ...data };
+        },
+        getPrivate: async (id) => {
+          const docRef = doc(db, 'incidents_private', id);
+          const docSnap = await getDoc(docRef);
+          return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null;
         },
         /**
          * Batch create (e.g. bulk GeoJSON facility import).

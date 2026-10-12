@@ -318,38 +318,93 @@ class GisRepository @Inject constructor(
      * outbox and replayed by [syncPendingReports]; returns false so the UI
      * can tell the user the report was saved for later delivery.
      */
-    suspend fun submitIncidentReport(incident: Incident): Boolean {
+    suspend fun submitIncidentReport(
+        incident: Incident,
+        reporterName: String = "",
+        reporterContact: String = "",
+        photos: List<String> = emptyList(),
+        remoteId: String = ""
+    ): Boolean {
+        val docId = if (remoteId.isNotBlank()) remoteId else if (incident.id.isNotBlank()) incident.id else java.util.UUID.randomUUID().toString()
+        val lat = incident.approx_latitude
+        val lng = incident.approx_longitude
+        val approxLat = if (lat != null && !lat.isNaN()) Math.round(lat * 100.0) / 100.0 else null
+        val approxLng = if (lng != null && !lng.isNaN()) Math.round(lng * 100.0) / 100.0 else null
+        val safePhotos = photos.take(2)
+
         return try {
-            val ref = firestore.collection("incidents").add(incident).await()
-            // Critical/SOS reports notify EOC staff devices via the free
-            // Vercel API route (replaces the Firestore-trigger Cloud Function).
+            val batch = firestore.batch()
+            val publicRef = firestore.collection("incidents").document(docId)
+            val privateRef = firestore.collection("incidents_private").document(docId)
+
+            val publicData = hashMapOf(
+                "title" to incident.title,
+                "type" to incident.type,
+                "priority" to incident.priority,
+                "status" to incident.status,
+                "municipality" to incident.municipality,
+                "barangay" to incident.barangay,
+                "description" to incident.description,
+                "approx_latitude" to approxLat,
+                "approx_longitude" to approxLng,
+                "photo_count" to safePhotos.size,
+                "reported_by_id" to incident.reported_by_id,
+                "schema_version" to 2,
+                "created_at" to FieldValue.serverTimestamp(),
+                "updated_at" to FieldValue.serverTimestamp()
+            )
+
+            val privateData = hashMapOf(
+                "reporter_name" to reporterName,
+                "reporter_contact" to reporterContact,
+                "reported_by_name" to reporterName,
+                "latitude" to lat,
+                "longitude" to lng,
+                "location" to if (lat != null && lng != null) GeoPoint(lat, lng) else null,
+                "photo_urls" to safePhotos,
+                "reported_by_id" to incident.reported_by_id,
+                "schema_version" to 2,
+                "created_at" to FieldValue.serverTimestamp(),
+                "updated_at" to FieldValue.serverTimestamp()
+            )
+
+            batch.set(publicRef, publicData)
+            batch.set(privateRef, privateData)
+            batch.commit().await()
+
             if (incident.type == "sos" || incident.priority == "critical") {
-                notifyApi.notifyCriticalIncident(ref.id)
+                notifyApi.notifyCriticalIncident(docId)
             }
             true
         } catch (e: Exception) {
             Log.w(TAG, "Online submit failed — queueing offline", e)
-            queueOfflineReport(incident)
+            queueOfflineReport(docId, incident, reporterName, reporterContact, safePhotos)
             false
         }
     }
 
-    private suspend fun queueOfflineReport(incident: Incident) {
+    private suspend fun queueOfflineReport(
+        remoteId: String,
+        incident: Incident,
+        reporterName: String,
+        reporterContact: String,
+        photos: List<String>
+    ) {
         try {
             incidentDao.insertIncident(
                 IncidentReport(
+                    remoteId = remoteId,
                     title = incident.title,
                     description = incident.description,
                     type = incident.type,
                     municipality = incident.municipality,
                     barangay = incident.barangay,
-                    latitude = incident.latitude,
-                    longitude = incident.longitude,
+                    reporterName = reporterName,
+                    reporterContact = reporterContact,
+                    latitude = incident.approx_latitude,
+                    longitude = incident.approx_longitude,
                     reportedById = incident.reported_by_id,
-                    // Joined inline data-URL photos (newline-separated; data URLs
-                    // never contain newlines). Guards the doc from exceeding
-                    // Firestore's 1MiB limit on replay.
-                    photoUrls = incident.photo_urls.joinToString("\n").take(780_000),
+                    photoUrls = photos.joinToString("\n").take(780_000),
                     createdDate = System.currentTimeMillis()
                 )
             )
@@ -358,38 +413,40 @@ class GisRepository @Inject constructor(
         }
     }
 
-    /**
-     * Replays queued offline reports to Firestore. Safe to call at login /
-     * on connectivity restore.
-     */
     suspend fun syncPendingReports(): Int {
         val pending = try { incidentDao.getPendingOnce() } catch (_: Exception) { emptyList() }
         var synced = 0
         for (row in pending) {
             try {
+                val photos = row.photoUrls.split("\n").filter { it.isNotBlank() }.take(2)
                 val incident = Incident(
+                    id = row.remoteId,
                     title = row.title,
                     description = row.description,
                     type = row.type,
                     municipality = row.municipality,
                     barangay = row.barangay,
-                    latitude = row.latitude,
-                    longitude = row.longitude,
-                    location = if (row.latitude != null && row.longitude != null)
-                        GeoPoint(row.latitude, row.longitude) else null,
+                    approx_latitude = row.latitude,
+                    approx_longitude = row.longitude,
+                    photo_count = photos.size,
                     status = "reported",
                     priority = if (row.type == "sos") "critical" else "medium",
                     reported_by_id = row.reportedById,
-                    photo_urls = row.photoUrls.split("\n").asSequence().filter { it.isNotBlank() }.take(2).toList(),
-                    created_at = Timestamp(java.util.Date(row.createdDate)),
-                    updated_at = Timestamp.now()
+                    schema_version = 2
                 )
-                firestore.collection("incidents").add(incident).await()
-                incidentDao.deleteById(row.id)
-                synced++
+                val success = submitIncidentReport(
+                    incident = incident,
+                    reporterName = row.reporterName,
+                    reporterContact = row.reporterContact,
+                    photos = photos,
+                    remoteId = row.remoteId
+                )
+                if (success) {
+                    incidentDao.deleteIncident(row)
+                    synced++
+                }
             } catch (e: Exception) {
-                // Still offline or rules rejected — leave the row queued.
-                break
+                Log.e(TAG, "Failed to sync pending report id=${row.id}", e)
             }
         }
         return synced

@@ -36,15 +36,28 @@ data class Incident(
     val type: String = "",
     val municipality: String = "",
     val barangay: String = "",
-    val location: GeoPoint? = null,
-    // Plain numeric coordinates mirror `location` for cross-platform
-    // compatibility: the web dashboard maps incidents by latitude/longitude.
-    val latitude: Double? = null,
-    val longitude: Double? = null,
+    val approx_latitude: Double? = null,
+    val approx_longitude: Double? = null,
+    val photo_count: Int = 0,
     val status: String = "reported", // reported, verified, dispatched, responding, resolved
     val priority: String = "medium",
     val reported_by_id: String = "",
+    val schema_version: Int = 2,
+    val created_at: Timestamp? = null,
+    val updated_at: Timestamp? = null
+)
+
+data class IncidentPrivate(
+    val id: String = "",
+    val reporter_name: String = "",
+    val reporter_contact: String = "",
+    val reported_by_name: String = "",
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val location: GeoPoint? = null,
     val photo_urls: List<String> = emptyList(),
+    val reported_by_id: String = "",
+    val schema_version: Int = 2,
     val created_at: Timestamp? = null,
     val updated_at: Timestamp? = null
 )
@@ -121,16 +134,17 @@ data class AgencyAlert(
 @Entity(tableName = "incident_reports")
 data class IncidentReport(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val remoteId: String = "",
     val title: String = "",
     val description: String = "",
     val type: String = "",
     val municipality: String = "",
     val barangay: String = "",
+    val reporterName: String = "",
+    val reporterContact: String = "",
     val latitude: Double? = null,
     val longitude: Double? = null,
     val reportedById: String = "",
-    /** Inline base64 data-URL photos, newline-joined (free-route storage: no
-     *  Cloud Storage bucket; photos live inside the Firestore document). */
     val photoUrls: String = "",
     val createdDate: Long = System.currentTimeMillis()
 )

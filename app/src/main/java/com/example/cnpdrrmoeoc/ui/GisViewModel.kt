@@ -221,29 +221,37 @@ class GisViewModel @Inject constructor(
         barangay: String = "",
         latitude: Double? = null,
         longitude: Double? = null,
-        photoUrls: List<String> = emptyList()
+        photoUrls: List<String> = emptyList(),
+        reporterName: String = "",
+        reporterContact: String = ""
     ) {
         val user = currentUser.value ?: return
         viewModelScope.launch {
+            val approxLat = if (latitude != null && !latitude.isNaN()) Math.round(latitude * 100.0) / 100.0 else null
+            val approxLng = if (longitude != null && !longitude.isNaN()) Math.round(longitude * 100.0) / 100.0 else null
+            val safePhotos = photoUrls.take(2)
             val incident = Incident(
                 title = title,
                 description = description,
                 type = type,
                 municipality = municipality,
                 barangay = barangay,
-                location = if (latitude != null && longitude != null) GeoPoint(latitude, longitude) else null,
-                latitude = latitude,
-                longitude = longitude,
+                approx_latitude = approxLat,
+                approx_longitude = approxLng,
+                photo_count = safePhotos.size,
                 status = "reported",
                 priority = if (type == "sos") "critical" else "medium",
                 reported_by_id = user.id,
-                // Inline base64 data-URL photos (free-route storage).
-                // Cap 2 to keep the Firestore doc under 1MiB.
-                photo_urls = photoUrls.take(2),
+                schema_version = 2,
                 created_at = Timestamp.now(),
                 updated_at = Timestamp.now()
             )
-            val success = repository.submitIncidentReport(incident)
+            val success = repository.submitIncidentReport(
+                incident = incident,
+                reporterName = if (reporterName.isNotBlank()) reporterName else user.full_name,
+                reporterContact = reporterContact,
+                photos = safePhotos
+            )
             _submissionStatus.emit(success)
         }
     }
